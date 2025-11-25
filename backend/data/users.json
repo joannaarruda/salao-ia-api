@@ -1,0 +1,50 @@
+[
+  {
+    "nome": "Ana Soares",
+    "telefone": "912984384",
+    "email": "joanna.arruda@hotmail.com",
+    "morada": "Lisboa, Portugal",
+    "senha": "$2b$12$bBVnFfXGyMUw9maX6EZ.QeLMAyzwx5EtQNQ0GyjLgewD2t3YfcJ6O",
+    "id": "5aaa0775-8d44-4d89-a789-59553210a0a9",
+    "created_at": "2025-11-23T21:56:03.840415",
+    "foto_perfil": "static/uploads\\296b00da-cda7-43bd-9352-153d6c9883d9_0695b38809214dd1b5f17e1e952a0a24.jpg",
+    "updated_at": "2025-11-24T12:51:32.315565",
+    "role": "admin"
+  },
+  {
+    "nome": "Rute Cardoso",
+    "telefone": "912984384",
+    "email": "joanna.arruda@gmail.com",
+    "morada": "Marvilha, Lisboa",
+    "senha": "$2b$12$Xgd8zYkk8zkmKxQxDndDuu2L2KLlEUl4PWfU69lb3h.7geru8KLV6",
+    "id": "2b072c34-2963-4bf6-bb8a-40a6909da07a",
+    "created_at": "2025-11-23T22:49:00.690665"
+  },
+  {
+    "nome": "juliana reis",
+    "telefone": "912984384",
+    "email": "juliana@hotmail.com",
+    "morada": "teste",
+    "senha": "$2b$12$VBrAmQeW2WtWeR2ekoMNrOZ6I7rKcfvdUvvbNxd5gHkRYqA2Beuy2",
+    "id": "f133754d-dc8f-46b4-8939-6bd7844311db",
+    "created_at": "2025-11-23T22:57:25.083645"
+  },
+  {
+    "nome": "mario jorge",
+    "telefone": "912984384",
+    "email": "arruda@hotmail.com",
+    "morada": "milao. Italia",
+    "senha": "$2b$12$3SQRdEUTMzxROIvBf7x/EOQNHAjpNgRE347DMLcNE.8N46Wn.pi6y",
+    "id": "6dc37ae1-6339-4bb6-b620-cb03f032387a",
+    "created_at": "2025-11-23T23:13:35.725772"
+  },
+  {
+    "nome": "lucia maria",
+    "telefone": "912984384",
+    "email": "teste@tese.salao.com",
+    "morada": "carac",
+    "senha": "$2b$12$7fL3tmWPVwAqkMBPfKvg4.Wu5zr0NGtVywFSgSECswauO.7XP/PLa",
+    "id": "296b00da-cda7-43bd-9352-153d6c9883d9",
+    "created_at": "2025-11-23T23:19:00.677956"
+  }
+]

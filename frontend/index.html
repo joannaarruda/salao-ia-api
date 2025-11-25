@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Salão IA - Agendamento Inteligente</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <!-- Navbar -->
+    <nav class="navbar">
+        <div class="container">
+            <!-- NOVO: Elemento para o Logo Dinâmico -->
+            <img id="systemLogo" class="logo-image" src="https://placehold.co/120x30/667eea/ffffff?text=Salão+IA" alt="Logo do Salão">
+            <div id="userMenu" class="user-menu" style="display: none;">
+                <!-- NOVO: Link/Botão de Admin (visível apenas para admins) -->
+                <button id="adminLink" onclick="showScreen('adminConfigScreen')" class="btn-admin" style="display: none;">⚙️ Configuração</button>
+                <span id="userName"></span>
+                <button onclick="logout()" class="btn-secondary">Sair</button>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Container Principal -->
+    <div class="container main-container">
+        
+        <!-- ==================== TELA DE LOGIN/REGISTRO ==================== -->
+        <div id="authScreen" class="screen active">
+            <div class="auth-box">
+                <h2 id="authTitle">Entrar</h2>
+                
+                <form id="authForm">
+                    <!-- Campos de Registro (ocultos inicialmente) -->
+                    <div id="registerFields" style="display: none;">
+                        <input type="text" id="nome" placeholder="Nome Completo" minlength="3">
+                        <input type="tel" id="telefone" placeholder="Telefone (ex: 912984384)" pattern="[0-9]{9,15}">
+                        <input type="text" id="morada" placeholder="Morada (ex: Rua principal, 10)">
+                    </div>
+
+                    <!-- Campos Comuns -->
+                    <input type="email" id="email" placeholder="Email" required>
+                    <input type="password" id="senha" placeholder="Senha" required minlength="6">
+                    
+                    <button type="submit" class="btn-primary">Entrar</button>
+                </form>
+
+                <p class="auth-toggle">
+                    <span id="authToggleText">Não tem conta?</span> 
+                    <a href="#" onclick="toggleAuthMode(event)">Criar conta</a>
+                </p>
+            </div>
+        </div>
+
+        <!-- ==================== TELA DE UPLOAD/AGENDAMENTO (Usuário Padrão) ==================== -->
+        <div id="uploadScreen" class="screen">
+            <div class="upload-box">
+                <h2>Corte & Beleza com IA</h2>
+                <p class="info-text">Tire uma foto para receber sugestões de cortes e agendar!</p>
+
+                <!-- Área da Câmera (Conteúdo de camera.js) -->
+                <video id="videoElement" autoplay></video>
+                <canvas id="canvasElement" style="display:none;"></canvas>
+                <img id="photoPreview" style="display:none;">
+                
+                <div class="button-group">
+                    <button id="startCameraButton" onclick="startCamera()" class="btn-secondary">📸 Ligar Câmera</button>
+                    <button id="takePictureButton" onclick="takePicture()" class="btn-primary" style="display:none;">✅ Tirar Foto</button>
+                    <button id="processImageButton" onclick="processImage()" class="btn-primary" style="display:none;">✨ Processar Imagem</button>
+                    <button id="retakePictureButton" onclick="retakePicture()" class="btn-secondary" style="display:none;">🔄 Retirar</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- ==================== TELA DE SUGESTÕES (Agendamento) ==================== -->
+        <div id="suggestionsScreen" class="screen">
+            <div class="suggestions-box">
+                <h2>💇‍♀️ Sugestões Personalizadas</h2>
+                <div id="aiSuggestions">
+                    <!-- Sugestões da IA serão inseridas aqui -->
+                </div>
+                
+                <h3>Agendar Serviço</h3>
+                <form id="appointmentForm">
+                    <select id="tipoServico" onchange="loadProfessionals()">
+                        <option value="">Selecione o Tipo de Serviço</option>
+                        <option value="cabelo">Cabelo</option>
+                        <option value="unha">Unha</option>
+                    </select>
+                    
+                    <select id="profissional" required>
+                        <option value="">Selecione um profissional</option>
+                    </select>
+
+                    <input type="date" id="data" required>
+                    <select id="horario" required>
+                        <option value="">Selecione um horário</option>
+                    </select>
+
+                    <input type="text" id="servico" placeholder="Serviço Específico (ex: Corte Long Bob)" required>
+                    
+                    <button type="submit" class="btn-primary">✅ Confirmar Agendamento</button>
+                    <button type="button" onclick="showScreen('uploadScreen')" class="btn-secondary">🔙 Voltar</button>
+                </form>
+            </div>
+        </div>
+
+        <!-- ==================== TELA DE MEUS AGENDAMENTOS ==================== -->
+        <div id="myAppointmentsScreen" class="screen">
+            <div class="appointments-list-box">
+                <h2>📋 Meus Agendamentos</h2>
+                <button onclick="showScreen('uploadScreen')" class="btn-secondary mb-20">🔙 Voltar</button>
+                <div id="appointmentsList"></div>
+            </div>
+        </div>
+        
+        <!-- ==================== NOVO: TELA DE ADMIN CONFIGURAÇÃO ==================== -->
+        <div id="adminConfigScreen" class="screen">
+            <div class="auth-box">
+                <h2>⚙️ Configuração do Salão</h2>
+                <p class="info-text">Altere o tema visual e a logo do salão.</p>
+                
+                <form id="configForm">
+                    <!-- Cores -->
+                    <label for="primaryColor">Cor Primária (Tema):</label>
+                    <input type="color" id="primaryColor" name="primary_color" required>
+                    
+                    <label for="secondaryColor">Cor Secundária:</label>
+                    <input type="color" id="secondaryColor" name="secondary_color" required>
+
+                    <!-- Logo Atual -->
+                    <h4>Logo Atual:</h4>
+                    <img id="currentLogoPreview" src="https://placehold.co/120x30/cccccc/000000?text=Logo" alt="Logo Atual" class="logo-preview-small">
+
+                    <!-- Upload da Nova Logo -->
+                    <label for="newLogo">Fazer Upload de Nova Logo (.png, .jpg):</label>
+                    <input type="file" id="newLogo" name="logo_file" accept="image/*">
+                    
+                    <!-- Preview da Nova Logo (enquanto selecionada) -->
+                    <img id="newLogoPreview" src="" alt="Nova Logo Preview" class="logo-preview-small" style="display: none; margin-top: 10px;">
+
+                    <button type="submit" class="btn-primary">💾 Salvar Configuração e Aplicar</button>
+                    <button type="button" onclick="showScreen('uploadScreen')" class="btn-secondary">🏠 Voltar</button>
+                </form>
+            </div>
+        </div>
+        <!-- ==================== FIM TELA ADMIN ==================== -->
+
+    </div>
+
+    <!-- Menu Rápido -->
+    <div class="quick-menu" id="quickMenu" style="display: none;">
+        <button onclick="showScreen('uploadScreen')" class="quick-btn">🏠 Início</button>
+        <button onclick="loadMyAppointments()" class="quick-btn">📋 Agendamentos</button>
+    </div>
+
+    <!-- ==================== SCRIPTS (ORDEM CORRETA) ==================== -->
+    <!-- 1º: Configuração global, autenticação, navegação -->
+    <script src="js/app.js"></script>
+    
+    <!-- NOVO: 2º: Lógica do Formulário de Configuração do Administrador -->
+    <script src="js/adminConfig.js"></script> 
+
+    <!-- 3º: Funcionalidades de câmera e upload -->
+    <script src="js/camera.js"></script>
+    
+    <!-- 4º: Sistema de agendamentos -->
+    <script src="js/appointments.js"></script>
+    
+    <!-- REMOVA ou deixe comentado o auth.js se as funções já estão no app.js -->
+    <!-- <script src="js/auth.js"></script> -->
+</body>
+</html>
