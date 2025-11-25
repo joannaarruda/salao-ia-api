@@ -1,0 +1,15 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.env
+.venv/
+env/
+ENV/
+
+# VS Code
+.vscode/
+
+# Arquivos grandes
+*.zip
