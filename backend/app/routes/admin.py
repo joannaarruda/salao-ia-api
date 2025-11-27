@@ -1,29 +1,16 @@
-from fastapi import APIRouter, HTTPException, Depends
+from fastapi import APIRouter, HTTPException, Depends, status
 from pydantic import BaseModel, Field
-from typing import Optional
-# Os imports internos de app.auth e app.database permanecem os mesmos
-from app.auth import get_current_user 
-from app.database import db 
+from typing import Optional, Annotated
 
-router = APIRouter()
+# Usando imports relativos, como nos outros routers
+from ..auth import get_current_user 
+from ..database import db 
+
+router = APIRouter(
+    tags=["admin"], # Adicionando tag para documentação
+)
 
 # --- Modelos Pydantic ---
-# 1. Definição da Classe (O Blueprint)
-class AppSettings(BaseModel):
-    """
-    Define as configurações globais da aplicação (incluindo as de segurança).
-    """
-    APP_NAME: str = "Salão IA API"
-    # IMPORTANTE: A rota auth.py precisa destes valores!
-    SECRET_KEY: str = "chave-secreta-forte-que-voce-deve-mudar" 
-    ALGORITHM: str = "HS256"
-    ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
-    DATABASE_FILE: str = "database.json"
-
-
-# 2. Instanciação do Objeto (A Variável a ser importada)
-# Esta linha cria a variável 'settings' que é exportada
-settings = AppSettings()
 
 class AdminConfig(BaseModel):
     """Modelo para as configurações de tema e logo."""
@@ -31,18 +18,20 @@ class AdminConfig(BaseModel):
     secondary_color: str = Field(default="#764ba2", description="Cor secundária do tema (CSS).")
     logo_url: str = Field(default="https://placehold.co/120x30/667eea/ffffff?text=Salão+IA", description="URL da imagem do logo.")
 
-
 # --- Helpers de Configuração ---
 
 CONFIG_COLLECTION = "system_config"
 CONFIG_DOC_ID = "main_config"
 
-def get_current_admin(current_user: dict = Depends(get_current_user)):
+def get_current_admin(current_user: Annotated[dict, Depends(get_current_user)]):
     """Verifica se o usuário logado é um administrador."""
-    # Nota: Assumindo que o objeto retornado pelo backend após o login/get_current_user 
-    # contém o campo 'is_admin'.
-    if not current_user.get("is_admin"):
-        raise HTTPException(status_code=403, detail="Acesso negado. Requer privilégios de administrador.")
+    # A verificação de role deve ser feita contra o campo 'role' 
+    # que é definido no modelo User (ver models.py)
+    if current_user.get("role") != "admin":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN, 
+            detail="Acesso negado. Requer privilégios de administrador."
+        )
     return current_user
 
 # --- Endpoints ---
@@ -61,14 +50,14 @@ async def get_admin_config():
 @router.post("/config/save", response_model=AdminConfig)
 async def save_admin_config_simple(
     config_data_model: AdminConfig, # Recebe o objeto completo com as novas cores e logo_url
-    current_user: dict = Depends(get_current_admin)
+    current_user: Annotated[dict, Depends(get_current_admin)] # Requer admin
 ):
     """Salva as configurações de tema e logo. Requer admin."""
     
+    # Converte o Pydantic model para um dicionário salvável
     config_data = config_data_model.model_dump()
     
-    # Salvar na base de dados (o banco de dados deve persistir este documento único)
-    # Use 'update_document' pois o documento é único para as configurações do sistema.
+    # Salvar na base de dados
     db.update_document(CONFIG_COLLECTION, CONFIG_DOC_ID, config_data)
     
     # Retorna a configuração atualizada

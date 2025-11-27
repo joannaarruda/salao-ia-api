@@ -1,426 +1,156 @@
-/* ==================== RESET E GLOBAL ==================== */
-/* Variáveis CSS para o tema */
-:root {
-    /* Cores padrão (serão sobrescritas por app.js) */
-    --primary-color: #667eea;
-    --secondary-color: #764ba2;
-    --text-color: #333;
-    --background-gradient: linear-gradient(135deg, var(--primary-color) 0%, var(--secondary-color) 100%);
-}
-
-* {
-    margin: 0;
-    padding: 0;
-    box-sizing: border-box;
-}
-
-body {
-    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-    /* Usar variável para o fundo */
-    background: var(--background-gradient);
-    min-height: 100vh;
-    color: var(--text-color);
-}
-
-.container {
-    max-width: 1200px;
-    margin: 0 auto;
-    padding: 0 20px;
-}
-
-/* ==================== NAVBAR ==================== */
-.navbar {
-    background-color: rgba(255, 255, 255, 0.98);
-    padding: 15px 0; /* Ajuste o padding */
-    box-shadow: 0 2px 15px rgba(0, 0, 0, 0.1);
-    position: sticky;
-    top: 0;
-    z-index: 100;
-}
-
-.navbar .container {
+/* SERVIÇOS MÚLTIPLOS */
+.service-item {
     display: flex;
     justify-content: space-between;
     align-items: center;
-}
-
-.logo {
-    /* Este estilo não será mais usado se usar uma imagem de logo */
-    font-size: 28px;
-    background: var(--background-gradient);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    font-weight: bold;
-    display: none; /* Ocultar o texto do logo se estiver usando imagem */
-}
-
-/* NOVO: Estilo para o elemento do Logo dinâmico (imagem) */
-.logo-image {
-    max-height: 40px;
-    width: auto;
-    object-fit: contain;
-}
-
-.user-menu {
-    display: flex;
-    align-items: center;
-    gap: 15px;
-    font-weight: 500;
-}
-
-/* NOVO: Botão de Admin */
-.btn-admin {
-    background-color: #f1f1f1;
-    color: var(--primary-color);
-    padding: 8px 15px;
-    border: 1px solid var(--primary-color);
+    padding: 10px;
+    background: #f5f5f5;
     border-radius: 8px;
-    cursor: pointer;
-    transition: background-color 0.3s;
-}
-
-.btn-admin:hover {
-    background-color: var(--primary-color);
-    color: white;
-}
-
-/* ==================== LAYOUT PRINCIPAL ==================== */
-.main-container {
-    padding-top: 50px;
-}
-
-.screen {
-    display: none;
-    animation: fadeIn 0.5s ease-in-out;
-}
-
-.screen.active {
-    display: block;
-}
-
-@keyframes fadeIn {
-    from { opacity: 0; transform: translateY(20px); }
-    to { opacity: 1; transform: translateY(0); }
-}
-
-/* ==================== CAIXAS GERAIS (Auth/Upload/Suggestions/Admin) ==================== */
-.auth-box, .upload-box, .suggestions-box, .appointments-list-box {
-    background-color: white;
-    padding: 40px;
-    border-radius: 15px;
-    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
-    max-width: 500px;
-    margin: 0 auto 50px auto;
-    text-align: center;
-}
-
-h2 {
-    color: var(--primary-color);
-    margin-bottom: 25px;
-    font-size: 24px;
-    font-weight: 700;
-}
-
-.info-text {
-    color: #666;
-    margin-bottom: 20px;
-    font-style: italic;
-}
-
-/* ==================== FORMULÁRIOS E INPUTS ==================== */
-form {
-    display: flex;
-    flex-direction: column;
-    gap: 15px;
-}
-
-input[type="text"], input[type="email"], input[type="password"], input[type="tel"], input[type="date"], select, input[type="color"] {
-    padding: 12px;
-    border: 1px solid #ddd;
-    border-radius: 8px;
-    font-size: 16px;
-    transition: border-color 0.3s, box-shadow 0.3s;
-}
-
-input[type="text"]:focus, input[type="email"]:focus, input[type="password"]:focus, input[type="tel"]:focus, input[type="date"]:focus, select:focus, input[type="color"]:focus {
-    border-color: var(--primary-color);
-    box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.2);
-    outline: none;
-}
-
-/* ==================== BOTÕES ==================== */
-.btn-primary, .btn-secondary {
-    padding: 12px 25px;
-    border: none;
-    border-radius: 8px;
-    font-weight: 600;
-    cursor: pointer;
-    transition: all 0.3s;
-    font-size: 16px;
-    margin-top: 5px;
-}
-
-.button-group {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 10px;
-    justify-content: center;
-    margin-top: 20px;
-}
-
-.btn-primary {
-    /* Usar variável para o gradiente principal */
-    background: var(--background-gradient);
-    color: white;
-    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
-}
-
-.btn-primary:hover {
-    transform: translateY(-2px);
-    opacity: 0.9;
-}
-
-.btn-secondary {
-    background-color: #eee;
-    color: #555;
-    border: 1px solid #ddd;
-}
-
-.btn-secondary:hover {
-    background-color: #ddd;
-    color: #333;
-}
-
-/* ==================== TELA DE AUTENTICAÇÃO ==================== */
-.auth-toggle {
-    margin-top: 20px;
-    font-size: 14px;
-}
-
-.auth-toggle a {
-    color: var(--primary-color);
-    text-decoration: none;
-    font-weight: 600;
-}
-
-/* ==================== TELA DE UPLOAD ==================== */
-#videoElement, #canvasElement, #photoPreview {
-    width: 100%;
-    max-width: 400px;
-    height: auto;
-    border-radius: 10px;
-    margin: 20px auto;
-    border: 3px solid #eee;
-}
-
-/* ==================== TELA DE SUGESTÕES ==================== */
-#aiSuggestions {
-    margin-bottom: 30px;
-    text-align: left;
-    background-color: #f9f9f9;
-    padding: 15px;
-    border-radius: 10px;
-    border-left: 5px solid var(--primary-color);
-}
-
-#aiSuggestions h4 {
-    color: var(--primary-color);
     margin-bottom: 10px;
 }
 
-/* ==================== TELA DE AGENDAMENTOS ==================== */
-.appointment-card {
-    background-color: #fff;
-    border: 1px solid #ddd;
-    border-left: 5px solid var(--secondary-color);
-    padding: 15px;
-    border-radius: 8px;
-    margin-bottom: 15px;
-    text-align: left;
-    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05);
-}
-
-.appointment-card h4 {
-    color: var(--secondary-color);
-    margin-bottom: 5px;
+.btn-remove {
+    background: #ef4444;
+    color: white;
+    border: none;
+    border-radius: 50%;
+    width: 30px;
+    height: 30px;
+    cursor: pointer;
     font-size: 18px;
 }
 
-.appointment-card p {
-    font-size: 14px;
-    color: #555;
-    margin-bottom: 4px;
+/* PAINEL PROFISSIONAL */
+.professional-panel {
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 20px;
 }
 
-.appointment-card .status {
+.date-selector {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 20px;
+}
+
+.appointment-card {
+    background: white;
+    border-radius: 10px;
+    padding: 15px;
+    margin-bottom: 15px;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+}
+
+.appointment-card.pendente {
+    border-left: 4px solid #fbbf24;
+}
+
+.appointment-card.confirmado {
+    border-left: 4px solid #3b82f6;
+}
+
+.appointment-card.em_atendimento {
+    border-left: 4px solid #8b5cf6;
+}
+
+.appointment-card.concluido {
+    border-left: 4px solid #10b981;
+}
+
+.status-badge {
     display: inline-block;
-    padding: 4px 10px;
-    border-radius: 5px;
+    padding: 4px 12px;
+    border-radius: 12px;
     font-size: 12px;
-    font-weight: 700;
-    margin-top: 10px;
-    color: white;
+    font-weight: bold;
 }
 
-.status.agendado {
-    background-color: #34d399; /* Verde */
+.status-badge.pendente {
+    background: #fef3c7;
+    color: #92400e;
 }
 
-.status.concluido {
-    background-color: #3b82f6; /* Azul */
+.status-badge.confirmado {
+    background: #dbeafe;
+    color: #1e40af;
 }
 
-.status.cancelado {
-    background-color: #ef4444; /* Vermelho */
+.status-badge.em_atendimento {
+    background: #ede9fe;
+    color: #5b21b6;
 }
 
-/* ==================== TELA DE ADMIN CONFIGURAÇÃO (NOVO) ==================== */
-#adminConfigScreen label {
+.status-badge.concluido {
+    background: #d1fae5;
+    color: #065f46;
+}
+
+/* MODAL */
+.modal {
+    display: none;
+    position: fixed;
+    z-index: 1000;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0,0,0,0.5);
+}
+
+.modal-content {
+    background-color: white;
+    margin: 5% auto;
+    padding: 20px;
+    border-radius: 15px;
+    width: 90%;
+    max-width: 600px;
+    max-height: 80vh;
+    overflow-y: auto;
+}
+
+.close {
+    color: #aaa;
+    float: right;
+    font-size: 28px;
+    font-weight: bold;
+    cursor: pointer;
+}
+
+.close:hover {
+    color: #000;
+}
+
+/* HISTÓRICO MÉDICO */
+.medical-box {
+    max-width: 600px;
+    margin: 0 auto;
+    background: white;
+    padding: 30px;
+    border-radius: 15px;
+}
+
+.medical-box label {
     display: block;
-    text-align: left;
     margin-top: 15px;
     margin-bottom: 5px;
     font-weight: 600;
-    color: var(--primary-color);
 }
 
-#adminConfigScreen h4 {
-    text-align: left;
-    margin-top: 20px;
-    margin-bottom: 10px;
-    color: #555;
-}
-
-.logo-preview-small {
-    display: block;
-    max-width: 120px;
-    max-height: 80px;
-    margin-left: 0;
-    border: 1px solid #ddd;
-    padding: 5px;
-    border-radius: 5px;
-    object-fit: contain;
-}
-
-/* Ajuste para input[type="color"] */
-input[type="color"] {
-    -webkit-appearance: none;
-    -moz-appearance: none;
-    appearance: none;
-    border: none;
-    width: 100%;
-    height: 40px;
-    padding: 0;
-    cursor: pointer;
-    border-radius: 8px;
-    border: 1px solid #ddd;
-}
-input[type="color"]::-webkit-color-swatch-wrapper {
-	padding: 0;
-}
-input[type="color"]::-webkit-color-swatch {
-	border: none;
-    border-radius: 8px;
-}
-input[type="color"]::-moz-color-swatch-wrapper {
-	padding: 0;
-}
-input[type="color"]::-moz-color-swatch {
-	border: none;
-    border-radius: 8px;
-}
-
-
-/* ==================== UTILITÁRIOS ==================== */
-.mb-20 { margin-bottom: 20px; }
-
-/* ==================== MENSAGENS FLUTUANTES ==================== */
-.message {
-    position: fixed;
-    top: 20px;
-    right: 20px;
-    padding: 15px 25px;
-    border-radius: 8px;
+/* OPÇÕES DE IA */
+.ia-option {
+    background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-secondary) 100%);
+    padding: 15px;
+    border-radius: 10px;
     color: white;
-    font-weight: 600;
-    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
-    z-index: 10000;
-    animation: slideIn 0.5s ease-out forwards;
+    margin-bottom: 20px;
 }
 
-.message-success {
-    background-color: #10b981;
+.ia-badge {
+    display: inline-block;
+    background: linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%);
     color: white;
-}
-
-.message-error {
-    background-color: #ef4444;
-    color: white;
-}
-
-.message-info {
-    background-color: #3b82f6;
-    color: white;
-}
-
-@keyframes slideIn {
-    from {
-        transform: translateX(450px);
-        opacity: 0;
-    }
-    to {
-        transform: translateX(0);
-        opacity: 1;
-    }
-}
-
-/* ==================== MENU RÁPIDO ==================== */
-.quick-menu {
-    position: fixed;
-    bottom: 30px;
-    right: 30px;
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-    z-index: 1000;
-}
-
-.quick-btn {
-    padding: 12px 20px;
-    /* Usar variável para o gradiente */
-    background: var(--background-gradient);
-    color: white;
-    border: none;
-    border-radius: 50px;
-    font-weight: 600;
-    cursor: pointer;
-    box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
-    transition: all 0.3s;
-}
-
-.quick-btn:hover {
-    transform: translateY(-3px);
-    box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
-}
-
-/* ==================== UTILITÁRIOS ==================== */
-@media (max-width: 600px) {
-    .navbar .container {
-        flex-direction: column;
-        gap: 10px;
-    }
-
-    .user-menu {
-        justify-content: center;
-        width: 100%;
-    }
-
-    .auth-box, .upload-box, .suggestions-box, .appointments-list-box {
-        padding: 25px;
-    }
-
-    .quick-menu {
-        bottom: 15px;
-        right: 15px;
-    }
+    padding: 4px 10px;
+    border-radius: 12px;
+    font-size: 12px;
+    font-weight: bold;
 }

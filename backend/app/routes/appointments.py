@@ -6,8 +6,10 @@ from ..auth import get_current_user
 from ..models import User, Appointment, AppointmentCreate
 from ..database import db
 
+GOOGLE_CALENDAR_ENABLED = False  # ← Mude para False
+
 router = APIRouter(
-    prefix="/appointments",
+  
     tags=["appointments"],
 )
 
@@ -56,10 +58,16 @@ async def create_appointment(
     appointment_data["usuario_id"] = current_user.id
     
     created_appointment = db.create_appointment(appointment_data)
+    # ✅ Sincroniza com Google Calendar SOMENTE se habilitado
+    if GOOGLE_CALENDAR_ENABLED and sync_calendar:
+        try:
+            from app.google_calendar import sync_appointment_to_calendar
+            sync_appointment_to_calendar(created_appointment)
+        except Exception as e:
+            print(f"⚠️  Erro ao sincronizar com Google Calendar: {e}")
+            # Não falha o agendamento se o Calendar der erro
     
     return Appointment(**created_appointment)
-
-
 # -------------------------------------------------------------
 # ROTA 2: LISTAR AGENDAMENTOS DO USUÁRIO
 # -------------------------------------------------------------

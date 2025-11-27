@@ -1,24 +1,17 @@
-from fastapi import APIRouter, status, Depends, Query
+from fastapi import APIRouter, HTTPException, status, Query
 from typing import List, Annotated, Optional
+from app.models import Professional
+from app.database import db
 
-from ..auth import get_current_user
-from ..models import Professional, User
-from ..database import db
-
-router = APIRouter(
-    prefix="/professionals",
-    tags=["professionals"],
-    dependencies=[Depends(get_current_user)]
-)
-
+router = APIRouter()
 
 @router.get("/", response_model=List[Professional])
 async def list_professionals(
-    tipo_servico: Annotated[Optional[str], Query(description="Filtrar por tipo de serviço (ex: cabelo, unha)")] = None,
-    current_user: Annotated[User, Depends(get_current_user)] = None
+    tipo_servico: Annotated[Optional[str], Query(description="Filtrar por tipo de serviço")] = None,
 ):
     """
-    Retorna a lista de todos os profissionais. Pode ser filtrada pelo tipo de serviço.
+    Lista todos os profissionais. Pode ser filtrada pelo tipo de serviço.
+    ROTA PÚBLICA - não requer autenticação
     """
     if tipo_servico:
         professionals_data = db.get_professionals_by_type(tipo_servico.lower())
@@ -26,3 +19,14 @@ async def list_professionals(
         professionals_data = db.get_all_professionals()
     
     return [Professional(**p) for p in professionals_data]
+
+@router.get("/{professional_id}", response_model=Professional)
+async def get_professional(professional_id: str):
+    """Buscar profissional por ID"""
+    professional = db.get_professional_by_id(professional_id)
+    if not professional:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Profissional não encontrado"
+        )
+    return professional

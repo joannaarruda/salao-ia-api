@@ -1,68 +1,252 @@
-from fastapi import APIRouter, HTTPException, Depends, status
-from typing import Dict, Any
-# Assumindo que a base de dados (db) e as funções de segurança (get_current_user_id)
-# já foram definidas nos outros módulos.
-from app.database import db
-from app.routes.users import get_current_user_id # Reutilizando a dependência de segurança
+"""
+STATISTICS.PY - ESTATÍSTICAS E RELATÓRIOS
+==========================================
+"""
 
-# =============================================================
-# --- ROTAS DE ESTATÍSTICAS ---
-# =============================================================
+from fastapi import APIRouter, HTTPException, Depends, Query
+from typing import Annotated, Optional
+from datetime import datetime, timedelta
+
+from app.models import User
+from app.database import db
+from app.auth import get_current_user  # ← CORRETO: Importa de auth.py
+
 router = APIRouter()
 
-@router.get("/", response_model=Dict[str, Any])
-async def get_system_statistics(current_user_id: str = Depends(get_current_user_id)):
+
+# ============================================================
+# ESTATÍSTICAS GERAIS
+# ============================================================
+
+@router.get("/overview")
+async def get_statistics_overview(
+    current_user: Annotated[User, Depends(get_current_user)]
+):
     """
-    Retorna estatísticas de alto nível para o sistema.
-    Acesso restrito apenas a utilizadores autenticados (simulando um painel de administrador/gestor).
+    Retorna visão geral das estatísticas do sistema.
+    Apenas administradores e profissionais podem ver.
     """
-    # 1. Verificar se o utilizador autenticado tem permissão para ver estatísticas
-    # Esta é uma simulação; num projeto real, você verificaria uma função (role) do utilizador.
-    # Por agora, assumimos que qualquer utilizador autenticado pode ver.
-    user = db.get_user_by_id(current_user_id)
-    if not user:
-         raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Acesso negado. O utilizador não está registado."
-        )
-
-    try:
-        # 2. Obter dados brutos
-        all_users = db.get_all_users()
-        all_appointments = db.get_all_appointments()
-        all_professionals = db.get_all_professionals()
-
-        # 3. Processar e calcular estatísticas
-        total_users = len(all_users)
-        total_appointments = len(all_appointments)
-        total_professionals = len(all_professionals)
-
-        # Contagem de agendamentos por status
-        appointments_by_status = {}
-        for apt in all_appointments:
-            status_key = apt.get("status", "desconhecido").lower()
-            appointments_by_status[status_key] = appointments_by_status.get(status_key, 0) + 1
-            
-        # Contagem de agendamentos por serviço (simulação)
-        appointments_by_service = {}
-        for apt in all_appointments:
-            service_key = apt.get("servico", "desconhecido").lower()
-            appointments_by_service[service_key] = appointments_by_service.get(service_key, 0) + 1
-
-
-        return {
-            "total_utilizadores": total_users,
-            "total_agendamentos": total_appointments,
-            "total_profissionais": total_professionals,
-            "agendamentos_por_status": appointments_by_status,
-            "agendamentos_por_servico": appointments_by_service,
-            "ultima_atualizacao": datetime.now().isoformat()
-        }
-        
-    except Exception as e:
-        # Lidar com falhas de acesso à base de dados
-        print(f"Erro ao gerar estatísticas: {e}")
+    if current_user.role not in ["admin", "profissional"]:
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Erro interno ao aceder aos dados da base de dados."
+            status_code=403,
+            detail="Acesso negado"
         )
+    
+    # Total de usuários
+    users = db.get_all_users()
+    total_users = len(users)
+    total_clientes = len([u for u in users if u.get("role") == "cliente"])
+    total_profissionais = len([u for u in users if u.get("role") == "profissional"])
+    
+    # Total de agendamentos
+    appointments = db.get_all_appointments()
+    total_appointments = len(appointments)
+    
+    # Agendamentos por status
+    status_counts = {}
+    for apt in appointments:
+        status = apt.get("status", "pendente")
+        status_counts[status] = status_counts.get(status, 0) + 1
+    
+    # Agendamentos este mês
+    now = datetime.now()
+    month_start = datetime(now.year, now.month, 1)
+    appointments_this_month = [
+        apt for apt in appointments
+        if datetime.fromisoformat(apt.get("created_at", "")) >= month_start
+    ]
+    
+    return {
+        "users": {
+            "total": total_users,
+            "clientes": total_clientes,
+            "profissionais": total_profissionais
+        },
+        "appointments": {
+            "total": total_appointments,
+            "this_month": len(appointments_this_month),
+            "by_status": status_counts
+        }
+    }
+
+
+# ============================================================
+# ESTATÍSTICAS DE AGENDAMENTOS
+# ============================================================
+
+@router.get("/appointments")
+async def get_appointment_statistics(
+    start_date: Optional[str] = Query(None, description="Data inicial (YYYY-MM-DD)"),
+    end_date: Optional[str] = Query(None, description="Data final (YYYY-MM-DD)"),
+    current_user: Annotated[User, Depends(get_current_user)] = None
+):
+    """
+    Estatísticas detalhadas de agendamentos.
+    """
+    if current_user.role not in ["admin", "profissional"]:
+        raise HTTPException(
+            status_code=403,
+            detail="Acesso negado"
+        )
+    
+    appointments = db.get_all_appointments()
+    
+    # Filtra por período se fornecido
+    if start_date:
+        start = datetime.fromisoformat(start_date)
+        appointments = [
+            apt for apt in appointments
+            if datetime.fromisoformat(apt.get("data_hora", "")) >= start
+        ]
+    
+    if end_date:
+        end = datetime.fromisoformat(end_date)
+        appointments = [
+            apt for apt in appointments
+            if datetime.fromisoformat(apt.get("data_hora", "")) <= end
+        ]
+    
+    # Agrupamentos
+    by_professional = {}
+    by_service = {}
+    by_day = {}
+    
+    for apt in appointments:
+        # Por profissional
+        prof_id = apt.get("profissional_id")
+        by_professional[prof_id] = by_professional.get(prof_id, 0) + 1
+        
+        # Por serviço
+        for service in apt.get("servicos", []):
+            service_type = service.get("tipo")
+            by_service[service_type] = by_service.get(service_type, 0) + 1
+        
+        # Por dia da semana
+        data_hora = datetime.fromisoformat(apt.get("data_hora", ""))
+        day_name = data_hora.strftime("%A")
+        by_day[day_name] = by_day.get(day_name, 0) + 1
+    
+    return {
+        "total": len(appointments),
+        "by_professional": by_professional,
+        "by_service": by_service,
+        "by_day_of_week": by_day
+    }
+
+
+# ============================================================
+# ESTATÍSTICAS DO PROFISSIONAL
+# ============================================================
+
+@router.get("/my-stats")
+async def get_my_statistics(
+    current_user: Annotated[User, Depends(get_current_user)]
+):
+    """
+    Estatísticas do profissional logado.
+    """
+    if current_user.role != "profissional":
+        raise HTTPException(
+            status_code=403,
+            detail="Apenas profissionais podem ver suas estatísticas"
+        )
+    
+    # Agendamentos do profissional
+    appointments = db.get_appointments_by_professional(current_user.id)
+    
+    # Total e por status
+    total = len(appointments)
+    by_status = {}
+    for apt in appointments:
+        status = apt.get("status", "pendente")
+        by_status[status] = by_status.get(status, 0) + 1
+    
+    # Este mês
+    now = datetime.now()
+    month_start = datetime(now.year, now.month, 1)
+    this_month = [
+        apt for apt in appointments
+        if datetime.fromisoformat(apt.get("created_at", "")) >= month_start
+    ]
+    
+    # Próximos agendamentos
+    upcoming = [
+        apt for apt in appointments
+        if apt.get("status") == "confirmado" and
+        datetime.fromisoformat(apt.get("data_hora", "")) >= now
+    ]
+    
+    return {
+        "total_appointments": total,
+        "by_status": by_status,
+        "this_month": len(this_month),
+        "upcoming": len(upcoming),
+        "upcoming_appointments": sorted(
+            upcoming,
+            key=lambda x: x.get("data_hora", "")
+        )[:5]  # Próximos 5
+    }
+
+
+# ============================================================
+# RELATÓRIO DE RECEITA (ADMIN)
+# ============================================================
+
+@router.get("/revenue")
+async def get_revenue_report(
+    start_date: Optional[str] = Query(None),
+    end_date: Optional[str] = Query(None),
+    current_user: Annotated[User, Depends(get_current_user)] = None
+):
+    """
+    Relatório de receita.
+    Apenas administradores.
+    """
+    if current_user.role != "admin":
+        raise HTTPException(
+            status_code=403,
+            detail="Apenas administradores podem ver relatórios de receita"
+        )
+    
+    appointments = db.get_all_appointments()
+    
+    # Filtra concluídos
+    completed = [apt for apt in appointments if apt.get("status") == "concluido"]
+    
+    # Filtra por período
+    if start_date:
+        start = datetime.fromisoformat(start_date)
+        completed = [
+            apt for apt in completed
+            if datetime.fromisoformat(apt.get("completed_at", apt.get("data_hora", ""))) >= start
+        ]
+    
+    if end_date:
+        end = datetime.fromisoformat(end_date)
+        completed = [
+            apt for apt in completed
+            if datetime.fromisoformat(apt.get("completed_at", apt.get("data_hora", ""))) <= end
+        ]
+    
+    # Calcula receita (se tiver preços nos serviços)
+    total_revenue = 0
+    by_service = {}
+    by_professional = {}
+    
+    for apt in completed:
+        for service in apt.get("servicos", []):
+            service_type = service.get("tipo")
+            price = service.get("preco", 0)
+            
+            total_revenue += price
+            by_service[service_type] = by_service.get(service_type, 0) + price
+            
+            prof_id = apt.get("profissional_id")
+            by_professional[prof_id] = by_professional.get(prof_id, 0) + price
+    
+    return {
+        "total_appointments": len(completed),
+        "total_revenue": total_revenue,
+        "by_service": by_service,
+        "by_professional": by_professional
+    }

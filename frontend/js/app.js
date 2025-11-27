@@ -245,7 +245,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     
     // 3. Verificar se já está logado
-    const savedToken = localStorage.getItem('authToken');
+    const savedToken = localStorage.getItem('access_token');
     const savedUser = localStorage.getItem('currentUser');
     
     if (savedToken && savedUser) {

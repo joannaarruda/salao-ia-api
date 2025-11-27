@@ -109,3 +109,7 @@ async def get_current_user(token: Annotated[str, Depends(oauth2_scheme)]) -> Use
     user_data.pop("senha", None)
 
     return User(**user_data)
+# ====================================================================
+# 6. ROTA HTTP PARA LOGIN (CORREÇÃO)
+# ====================================================================
+

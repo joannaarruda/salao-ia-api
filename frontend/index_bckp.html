@@ -1,0 +1,189 @@
+<!-- TELA DE AGENDAMENTO (EXPANDIDA) -->
+<div id="scheduleScreen" class="screen">
+    <div class="schedule-box">
+        <h2>📅 Novo Agendamento</h2>
+        
+        <!-- OPÇÃO DE IA -->
+        <div class="ia-option">
+            <label>
+                <input type="checkbox" id="usarIA" onchange="toggleIA()">
+                ✨ Usar sugestões de IA
+            </label>
+        </div>
+        
+        <div id="preferenciasIA" style="display:none;">
+            <textarea 
+                id="preferenciasIAText" 
+                placeholder="Descreva suas preferências (ex: quero um corte moderno, cor mais clara...)"
+            ></textarea>
+        </div>
+        
+        <!-- SELEÇÃO DE PROFISSIONAL -->
+        <select id="tipoServico" onchange="loadProfessionals()">
+            <option value="">Tipo de Serviço</option>
+            <option value="cabelo">Cabelo</option>
+            <option value="unha">Unha</option>
+        </select>
+        
+        <select id="profissional">
+            <option value="">Selecione o profissional</option>
+        </select>
+        
+        <!-- ADICIONAR SERVIÇOS -->
+        <h3>Serviços</h3>
+        <div class="add-service-form">
+            <select id="servicoTipo">
+                <option value="corte">Corte</option>
+                <option value="coloracao">Coloração</option>
+                <option value="luzes">Luzes</option>
+                <option value="mechas">Mechas</option>
+                <option value="hidratacao">Hidratação</option>
+                <option value="retoque_raiz">Retoque de Raiz</option>
+            </select>
+            
+            <input 
+                type="text" 
+                id="servicoDescricao" 
+                placeholder="Descrição (opcional)"
+            >
+            
+            <input 
+                type="number" 
+                id="servicoDuracao" 
+                placeholder="Duração (min)" 
+                value="60"
+            >
+            
+            <button onclick="addService()" class="btn-secondary">+ Adicionar</button>
+        </div>
+        
+        <div id="selectedServicesList"></div>
+        <p id="duracaoTotal"></p>
+        
+        <!-- DATA E HORÁRIO -->
+        <input type="date" id="dataAgendamento" onchange="checkAvailability()">
+        <div id="horariosDisponiveis"></div>
+        
+        <!-- OPÇÕES ADICIONAIS -->
+        <div class="additional-options">
+            <label>
+                <input type="checkbox" id="requerConsulta">
+                Solicitar consulta prévia
+            </label>
+            
+            <label>
+                <input type="checkbox" id="requerTesteMecha">
+                Solicitar teste de mecha
+            </label>
+        </div>
+        
+        <textarea 
+            id="observacoes" 
+            placeholder="Observações adicionais"
+        ></textarea>
+        
+        <button onclick="submitAppointment()" class="btn-primary">
+            Confirmar Agendamento
+        </button>
+    </div>
+</div>
+
+<!-- TELA DO PROFISSIONAL -->
+<div id="professionalScreen" class="screen">
+    <div class="professional-panel">
+        <h2>👨‍💼 Painel do Profissional</h2>
+        
+        <div class="date-selector">
+            <input 
+                type="date" 
+                id="professionalDate" 
+                onchange="loadProfessionalSchedule(this.value)"
+            >
+            <button onclick="loadProfessionalSchedule()" class="btn-secondary">
+                Hoje
+            </button>
+        </div>
+        
+        <div id="scheduleContainer"></div>
+    </div>
+</div>
+
+<!-- MODAL DE FICHA DE ATENDIMENTO -->
+<div id="attendanceModal" class="modal">
+    <div class="modal-content">
+        <span class="close" onclick="closeAttendanceModal()">&times;</span>
+        <h2>📋 Registrar Atendimento</h2>
+        
+        <form id="attendanceForm">
+            <h3>Produtos Utilizados</h3>
+            <div id="productsList">
+                <!-- Produtos dinâmicos -->
+            </div>
+            <button type="button" onclick="addProduct()" class="btn-secondary">
+                + Adicionar Produto
+            </button>
+            
+            <h3>Técnicas Aplicadas</h3>
+            <textarea id="tecnicasAplicadas"></textarea>
+            
+            <label>Tempo de Processamento (minutos)</label>
+            <input type="number" id="tempoProcessamento">
+            
+            <label>Observações Técnicas</label>
+            <textarea id="observacoesTecnicas"></textarea>
+            
+            <label>
+                <input type="checkbox" id="podePublicar">
+                Cliente autoriza publicação de fotos
+            </label>
+            
+            <h3>Recomendações</h3>
+            <textarea 
+                id="proximaRecomendacao" 
+                placeholder="Próxima visita, cuidados..."
+            ></textarea>
+            
+            <button type="button" onclick="saveAttendanceRecord()" class="btn-primary">
+                Salvar Ficha
+            </button>
+        </form>
+    </div>
+</div>
+
+<!-- TELA DE HISTÓRICO MÉDICO -->
+<div id="medicalHistoryScreen" class="screen">
+    <div class="medical-box">
+        <h2>🏥 Histórico Médico</h2>
+        
+        <form id="medicalHistoryForm">
+            <label>
+                <input type="checkbox" id="usaMedicamentos">
+                Usa medicamentos regularmente?
+            </label>
+            
+            <textarea 
+                id="medicamentosDetalhes" 
+                placeholder="Quais medicamentos? (corticoides, antibióticos, etc.)"
+            ></textarea>
+            
+            <label>Alergias conhecidas:</label>
+            <textarea id="alergias"></textarea>
+            
+            <label>Tratamentos anteriores:</label>
+            <div id="tratamentosLista"></div>
+            <button type="button" onclick="addTratamento()" class="btn-secondary">
+                + Adicionar Tratamento
+            </button>
+            
+            <label>
+                <input type="checkbox" id="banhoPiscina">
+                Faz banho de piscina frequentemente?
+            </label>
+            
+            <label>Observações médicas:</label>
+            <textarea id="observacoesMedicas"></textarea>
+            
+            <button type="submit" class="btn-primary">Salvar Histórico</button>
+        </form>
+    </div>
+</div>

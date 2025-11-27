@@ -27,7 +27,8 @@
     "morada": "teste",
     "senha": "$2b$12$VBrAmQeW2WtWeR2ekoMNrOZ6I7rKcfvdUvvbNxd5gHkRYqA2Beuy2",
     "id": "f133754d-dc8f-46b4-8939-6bd7844311db",
-    "created_at": "2025-11-23T22:57:25.083645"
+    "created_at": "2025-11-23T22:57:25.083645",
+    "role": "cliente"
   },
   {
     "nome": "mario jorge",
@@ -36,7 +37,8 @@
     "morada": "milao. Italia",
     "senha": "$2b$12$3SQRdEUTMzxROIvBf7x/EOQNHAjpNgRE347DMLcNE.8N46Wn.pi6y",
     "id": "6dc37ae1-6339-4bb6-b620-cb03f032387a",
-    "created_at": "2025-11-23T23:13:35.725772"
+    "created_at": "2025-11-23T23:13:35.725772",
+    "role": "cliente"
   },
   {
     "nome": "lucia maria",
@@ -45,6 +47,7 @@
     "morada": "carac",
     "senha": "$2b$12$7fL3tmWPVwAqkMBPfKvg4.Wu5zr0NGtVywFSgSECswauO.7XP/PLa",
     "id": "296b00da-cda7-43bd-9352-153d6c9883d9",
-    "created_at": "2025-11-23T23:19:00.677956"
+    "created_at": "2025-11-23T23:19:00.677956",
+    "role": "cliente"
   }
 ]
