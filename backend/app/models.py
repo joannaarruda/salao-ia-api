@@ -1,29 +1,27 @@
 """
-MODELS.PY - MODELOS COMPLETOS DO SISTEMA
-=========================================
-Inclui todos os modelos necessários para:
-- Usuários (clientes e profissionais)
-- Settings (configurações do salão)
-- Agendamentos com histórico médico
-- Consultas e fichas de atendimento
-- Histórico de procedimentos
+MODELS.PY - MODELOS PYDANTIC ATUALIZADOS
+========================================
+Modelos com suporte completo a:
+- Análise facial com IA
+- Teste de mecha obrigatório
+- Serviços detalhados
 """
 
-from pydantic import BaseModel, EmailStr, Field
-from typing import List, Optional
+from pydantic import BaseModel, Field, EmailStr
+from typing import Optional, List, Dict, Any
 from datetime import datetime
 from enum import Enum
 
 
-# ===============================================================
+# ============================================================
 # ENUMS
-# ===============================================================
+# ============================================================
 
 class UserRole(str, Enum):
     """Roles de usuário"""
-    ADMIN = "admin"
     CLIENTE = "cliente"
     PROFISSIONAL = "profissional"
+    ADMIN = "admin"
 
 
 class AppointmentStatus(str, Enum):
@@ -40,313 +38,181 @@ class ServiceType(str, Enum):
     CORTE = "corte"
     COLORACAO = "coloracao"
     LUZES = "luzes"
-    MECHAS = "mechas"
     HIDRATACAO = "hidratacao"
     RETOQUE_RAIZ = "retoque_raiz"
     MANICURE = "manicure"
     PEDICURE = "pedicure"
-    UNHA_GEL = "unha_gel"
-    NAIL_ART = "nail_art"
+    TRATAMENTO = "tratamento"
+    DESCOLORACAO = "descoloracao"
+    ALISAMENTO = "alisamento"
+    PERMANENTE = "permanente"
 
 
-# ===============================================================
-# MODELOS DE UTILIZADOR
-# ===============================================================
+# ============================================================
+# MODELOS DE USUÁRIO
+# ============================================================
 
 class UserBase(BaseModel):
-    """Modelo base para utilizadores"""
+    """Base de usuário"""
+    nome: str = Field(..., min_length=2, max_length=100)
     email: EmailStr
-    nome: str = Field(..., min_length=3)
     telefone: Optional[str] = None
     morada: Optional[str] = None
-    role: UserRole = UserRole.CLIENTE
 
 
 class UserCreate(UserBase):
-    """Modelo para criação de utilizador"""
+    """Criação de usuário"""
     senha: str = Field(..., min_length=6)
+    role: Optional[UserRole] = UserRole.CLIENTE
 
 
 class UserLogin(BaseModel):
-    """Modelo para login"""
+    """Login de usuário"""
     email: EmailStr
     senha: str
 
 
 class User(UserBase):
-    """Modelo de utilizador para resposta API"""
+    """Usuário completo (resposta)"""
     id: str
+    role: UserRole = UserRole.CLIENTE
     foto_perfil: Optional[str] = None
-    created_at: Optional[str] = None
     is_active: bool = True
+    created_at: Optional[str] = None
 
     class Config:
         from_attributes = True
 
 
-# ===============================================================
-# MODELOS DE AUTENTICAÇÃO (TOKEN)
-# ===============================================================
+# ============================================================
+# MODELOS DE TOKEN
+# ============================================================
 
 class Token(BaseModel):
-    """Modelo de resposta de token de acesso, incluindo o objeto do usuário."""
+    """Token de autenticação"""
     access_token: str
-    token_type: str
-    user: User # Usa o modelo User definido acima
+    token_type: str = "bearer"
+    user: Optional[Dict[str, Any]] = None
+
 
 class TokenData(BaseModel):
-    """Modelo para dados decodificados do JWT (payload)."""
-    email: Optional[EmailStr] = None
-    role: Optional[UserRole] = None
-    id: Optional[str] = None
+    """Dados do token"""
+    email: Optional[str] = None
+    user_id: Optional[str] = None
+    role: Optional[str] = None
 
 
-# ===============================================================
-# MODELOS DE SETTINGS (CONFIGURAÇÕES)
-# ===============================================================
-
-class ColorPalette(BaseModel):
-    """Paleta de cores do sistema"""
-    primary: str = Field(default="#6366f1", pattern="^#([A-Fa-f0-9]{6})$")
-    secondary: str = Field(default="#8b5cf6", pattern="^#([A-Fa-f0-9]{6})$")
-    accent: str = Field(default="#ec4899", pattern="^#([A-Fa-f0-9]{6})$")
-    background: str = Field(default="#ffffff", pattern="^#([A-Fa-f0-9]{6})$")
-    text: str = Field(default="#1f2937", pattern="^#([A-Fa-f0-9]{6})$")
-
-
-class Settings(BaseModel):
-    """Configurações do sistema"""
-    salon_name: str = Field(default="Salão IA")
-    logo_url: str = Field(default="/static/images/default_logo.png")
-    logo_filename: Optional[str] = None
-    colors: ColorPalette = Field(default_factory=ColorPalette)
-    updated_at: Optional[str] = None
-    updated_by: Optional[str] = None
-
-
-# ===============================================================
-# MODELOS DE PROFISSIONAIS
-# ===============================================================
+# ============================================================
+# MODELOS DE PROFISSIONAL
+# ============================================================
 
 class Professional(BaseModel):
-    """Modelo para profissional"""
+    """Profissional"""
     id: str
     nome: str
     tipo_servico: str
-    especialidades: List[str]
+    especialidades: List[str] = []
     is_active: bool = True
 
     class Config:
         from_attributes = True
 
 
-# ===============================================================
-# MODELOS DE FICHA MÉDICA / CONSULTA
-# ===============================================================
+# ============================================================
+# MODELOS DE SERVIÇO
+# ============================================================
 
-class MedicalHistory(BaseModel):
-    """Histórico médico do cliente"""
-    usa_medicamentos: bool = False
-    medicamentos: Optional[str] = None
-    alergias: Optional[str] = None
-    tratamentos_anteriores: List[str] = Field(default_factory=list)
-    banho_piscina_frequente: bool = False
-    observacoes_medicas: Optional[str] = None
-
-
-class MedicalHistoryCreate(MedicalHistory):
-    """Criação de histórico médico"""
-    cliente_id: str
+class Servico(BaseModel):
+    """Serviço individual"""
+    tipo: str
+    descricao: Optional[str] = None
+    duracao_estimada: int = Field(default=60, ge=15, le=480)
+    preco: Optional[float] = None
+    requer_teste_mecha: bool = False  # ✅ NOVO: Para colorações/químicas
+    produtos_utilizados: List[str] = []  # ✅ NOVO: Lista de produtos
 
 
-class MedicalHistoryResponse(MedicalHistory):
-    """Resposta de histórico médico"""
-    id: str
-    cliente_id: str
-    created_at: str
-    updated_at: Optional[str] = None
-
-
-# ===============================================================
-# MODELOS DE TESTE DE MECHA
-# ===============================================================
-
-class StrandTest(BaseModel):
-    """Teste de mecha"""
-    resultado: str
-    observacoes: Optional[str] = None
-    recomendacao: Optional[str] = None
-    produto_testado: Optional[str] = None
-
-
-class StrandTestCreate(StrandTest):
-    """Criação de teste de mecha"""
-    cliente_id: str
-    profissional_id: str
-
-
-class StrandTestResponse(StrandTest):
-    """Resposta de teste de mecha"""
-    id: str
-    cliente_id: str
-    profissional_id: str
-    created_at: str
-
-
-# ===============================================================
-# MODELOS DE AGENDAMENTO
-# ===============================================================
-
-class ServiceItem(BaseModel):
-    """Item de serviço individual"""
-    tipo: ServiceType
+class ServicoCreate(BaseModel):
+    """Criação de serviço"""
+    tipo: str
     descricao: Optional[str] = None
     duracao_estimada: int = 60
-    preco: Optional[float] = None
+    requer_teste_mecha: bool = False
+    produtos_utilizados: List[str] = []
 
+
+# ============================================================
+# MODELOS DE ANÁLISE FACIAL (NOVO)
+# ============================================================
+
+class FacialAnalysisRequest(BaseModel):
+    """Requisição de análise facial"""
+    usar_foto_perfil: bool = False
+    retornar_recomendacoes: bool = True
+
+
+class FacialAnalysisResponse(BaseModel):
+    """Resposta da análise facial"""
+    modo: str  # "demo" ou "ia_real"
+    formato_rosto: str
+    tom_pele: str
+    confianca: float
+    cortes_sugeridos: List[str]
+    cores_sugeridas: List[str]
+    dicas_estilo: List[str]
+    evitar_cortes: List[str] = []
+    evitar_cores: List[str] = []
+    message: Optional[str] = None
+
+
+# ============================================================
+# MODELOS DE AGENDAMENTO
+# ============================================================
 
 class AppointmentBase(BaseModel):
-    """Modelo base para agendamento"""
+    """Base de agendamento"""
     profissional_id: str
-    data_hora: str
-    servicos: List[ServiceItem] = Field(..., min_items=1)
-    usar_ia: bool = False
-    preferencias_ia: Optional[str] = None
+    data_hora: str  # ISO 8601 format
+    servicos: List[Servico]
     observacoes: Optional[str] = None
+    usar_ia: bool = False  # ✅ Usar análise de IA
+    preferencias_ia: Optional[str] = None
+    requer_consulta: bool = False  # ✅ Consulta prévia
+    requer_teste_mecha: bool = False  # ✅ NOVO: Teste de mecha necessário
 
 
 class AppointmentCreate(AppointmentBase):
     """Criação de agendamento"""
-    requer_consulta: bool = False
-    requer_teste_mecha: bool = False
+    pass
 
 
 class Appointment(AppointmentBase):
-    """Modelo completo de agendamento"""
+    """Agendamento completo"""
     id: str
     cliente_id: str
     status: AppointmentStatus = AppointmentStatus.PENDENTE
-    created_at: str
+    created_at: Optional[str] = None
     confirmed_at: Optional[str] = None
     completed_at: Optional[str] = None
+    google_calendar_event_id: Optional[str] = None
+    teste_mecha_realizado: bool = False  # ✅ NOVO
+    teste_mecha_aprovado: Optional[bool] = None  # ✅ NOVO
+    teste_mecha_data: Optional[str] = None  # ✅ NOVO
 
     class Config:
         from_attributes = True
 
 
-# ===============================================================
-# MODELOS DE ATENDIMENTO / FICHA DE PROCEDIMENTO
-# ===============================================================
-
-class ProcedureRecord(BaseModel):
-    """Registro de procedimento realizado"""
-    produtos_utilizados: List[str] = Field(default_factory=list)
-    tecnicas_aplicadas: List[str] = Field(default_factory=list)
-    tempo_processamento: Optional[int] = None
-    observacoes_tecnicas: Optional[str] = None
-    fotos_antes: List[str] = Field(default_factory=list)
-    fotos_depois: List[str] = Field(default_factory=list)
-    pode_publicar_fotos: bool = False
-
-
-class ClientFeedback(BaseModel):
-    """Feedback do cliente"""
-    satisfacao: int = Field(..., ge=1, le=5)
-    gostou_resultado: bool = True
-    gostou_atendimento: bool = True
-    observacoes_cliente: Optional[str] = None
-    reacao_alergica: bool = False
-    detalhes_reacao: Optional[str] = None
-
-
-class AttendanceRecord(BaseModel):
-    """Ficha completa de atendimento"""
-    appointment_id: str
-    cliente_id: str
-    profissional_id: str
-    procedimento: ProcedureRecord
-    feedback: Optional[ClientFeedback] = None
-    proxima_recomendacao: Optional[str] = None
-    cronograma_tratamento: Optional[List[str]] = None
-
-
-class AttendanceRecordCreate(AttendanceRecord):
-    """Criação de ficha de atendimento"""
-    pass
-
-
-class AttendanceRecordResponse(AttendanceRecord):
-    """Resposta de ficha de atendimento"""
-    id: str
-    created_at: str
-    updated_at: Optional[str] = None
-
-
-# ===============================================================
-# MODELOS DE HISTÓRICO DO CLIENTE
-# ===============================================================
-
-class ClientHistory(BaseModel):
-    """Histórico completo do cliente"""
-    cliente_id: str
-    agendamentos: List[Appointment] = Field(default_factory=list)
-    atendimentos: List[AttendanceRecordResponse] = Field(default_factory=list)
-    testes_mecha: List[StrandTestResponse] = Field(default_factory=list)
-    historico_medico: Optional[MedicalHistoryResponse] = None
-    observacoes_gerais: List[str] = Field(default_factory=list)
-
-
-# ===============================================================
-# MODELOS DE CONSULTA PROFISSIONAL
-# ===============================================================
-
-class Consultation(BaseModel):
-    """Consulta inicial"""
-    cliente_id: str
-    profissional_id: str
-    objetivo: str
-    estado_atual_cabelo: str
-    desejos_cliente: str
-    historico_resumido: Optional[str] = None
-    recomendacoes: Optional[str] = None
-    requer_teste_mecha: bool = False
-
-
-class ConsultationCreate(Consultation):
-    """Criação de consulta"""
-    pass
-
-
-class ConsultationResponse(Consultation):
-    """Resposta de consulta"""
-    id: str
-    created_at: str
-    agendamento_id: Optional[str] = None
-
-
-# ===============================================================
-# MODELOS DE AGENDA DO PROFISSIONAL
-# ===============================================================
-
-class ProfessionalSchedule(BaseModel):
-    """Agenda do profissional"""
-    profissional_id: str
-    data: str
-    agendamentos: List[Appointment] = Field(default_factory=list)
-    horarios_disponiveis: List[str] = Field(default_factory=list)
-    total_agendamentos: int = 0
-
-
-# ===============================================================
+# ============================================================
 # MODELOS DE DISPONIBILIDADE
-# ===============================================================
+# ============================================================
 
 class TimeSlot(BaseModel):
     """Slot de horário"""
     horario: str
     disponivel: bool
     profissional_id: str
-    duracao_disponivel: int = 60
+    duracao_disponivel: int = 0
 
 
 class AvailabilityResponse(BaseModel):
@@ -354,3 +220,179 @@ class AvailabilityResponse(BaseModel):
     data: str
     profissional_id: str
     horarios: List[TimeSlot]
+
+
+class ProfessionalSchedule(BaseModel):
+    """Agenda do profissional"""
+    profissional_id: str
+    data: str
+    agendamentos: List[Appointment]
+    horarios_disponiveis: List[str]
+    total_agendamentos: int
+
+
+# ============================================================
+# MODELOS DE HISTÃ"RICO MÉDICO
+# ============================================================
+
+class MedicalHistoryBase(BaseModel):
+    """Base de histórico médico"""
+    alergias: List[str] = []
+    medicamentos_em_uso: List[str] = []
+    tratamentos_anteriores: List[str] = []
+    quimica_recente: bool = False
+    data_ultima_quimica: Optional[str] = None
+    tipo_ultima_quimica: Optional[str] = None
+    problemas_couro_cabeludo: List[str] = []
+    gravidez_ou_amamentacao: bool = False
+    banho_piscina_frequente: bool = False
+    observacoes: Optional[str] = None
+
+
+class MedicalHistoryCreate(MedicalHistoryBase):
+    """Criação de histórico médico"""
+    pass
+
+
+class MedicalHistory(MedicalHistoryBase):
+    """Histórico médico completo"""
+    id: str
+    cliente_id: str
+    created_at: Optional[str] = None
+    data_atualizacao: Optional[str] = None
+
+    class Config:
+        from_attributes = True
+
+
+class MedicalHistoryResponse(MedicalHistory):
+    """Resposta de histórico médico"""
+    pass
+
+
+# ============================================================
+# MODELOS DE CONSULTA
+# ============================================================
+
+class ConsultationBase(BaseModel):
+    """Base de consulta"""
+    cliente_id: str
+    objetivo: str
+    estado_atual_cabelo: Optional[str] = None
+    desejos_cliente: Optional[str] = None
+    requer_teste_mecha: bool = False
+
+
+class ConsultationCreate(ConsultationBase):
+    """Criação de consulta"""
+    pass
+
+
+class Consultation(ConsultationBase):
+    """Consulta completa"""
+    id: str
+    profissional_id: str
+    agendamento_id: Optional[str] = None
+    created_at: Optional[str] = None
+    resultado: Optional[str] = None
+
+    class Config:
+        from_attributes = True
+
+
+class ConsultationResponse(Consultation):
+    """Resposta de consulta"""
+    pass
+
+
+# ============================================================
+# MODELOS DE TESTE DE MECHA (ATUALIZADO)
+# ============================================================
+
+class StrandTestBase(BaseModel):
+    """Base de teste de mecha"""
+    cliente_id: str
+    produto_testado: str
+    area_teste: str = "nuca"
+    tempo_exposicao: int  # minutos
+    resultado: Optional[str] = None
+    aprovado: Optional[bool] = None
+    observacoes: Optional[str] = None
+    reacao_alergica: bool = False  # ✅ NOVO
+    fotos_teste: List[str] = []  # ✅ NOVO
+
+
+class StrandTestCreate(StrandTestBase):
+    """Criação de teste de mecha"""
+    pass
+
+
+class StrandTest(StrandTestBase):
+    """Teste de mecha completo"""
+    id: str
+    profissional_id: str
+    agendamento_id: Optional[str] = None  # ✅ NOVO: Vincula ao agendamento
+    created_at: Optional[str] = None
+    data_validade: Optional[str] = None  # Normalmente 6 meses
+
+    class Config:
+        from_attributes = True
+
+
+class StrandTestResponse(StrandTest):
+    """Resposta de teste de mecha"""
+    pass
+
+
+# ============================================================
+# MODELOS DE FICHA DE ATENDIMENTO
+# ============================================================
+
+class ProcedimentoDetalhe(BaseModel):
+    """Detalhes do procedimento"""
+    produtos_utilizados: List[str] = []
+    tecnicas_aplicadas: List[str] = []
+    tempo_processamento: Optional[int] = None
+    observacoes_tecnicas: Optional[str] = None
+    fotos_antes: List[str] = []
+    fotos_depois: List[str] = []
+    pode_publicar_fotos: bool = False
+
+
+class FeedbackCliente(BaseModel):
+    """Feedback do cliente"""
+    satisfacao: Optional[int] = Field(None, ge=1, le=5)
+    gostou_resultado: Optional[bool] = None
+    comentario: Optional[str] = None
+    reacao_alergica: bool = False
+    data_feedback: Optional[str] = None
+
+
+class AttendanceRecordBase(BaseModel):
+    """Base de ficha de atendimento"""
+    appointment_id: str
+    cliente_id: str
+    procedimento: ProcedimentoDetalhe
+    proxima_recomendacao: Optional[str] = None
+    cronograma_tratamento: Optional[str] = None
+
+
+class AttendanceRecordCreate(AttendanceRecordBase):
+    """Criação de ficha de atendimento"""
+    pass
+
+
+class AttendanceRecord(AttendanceRecordBase):
+    """Ficha de atendimento completa"""
+    id: str
+    profissional_id: str
+    created_at: Optional[str] = None
+    feedback: Optional[FeedbackCliente] = None
+
+    class Config:
+        from_attributes = True
+
+
+class AttendanceRecordResponse(AttendanceRecord):
+    """Resposta de ficha de atendimento"""
+    pass

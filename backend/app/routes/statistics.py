@@ -1,22 +1,22 @@
 """
-STATISTICS.PY - ESTATÍSTICAS E RELATÓRIOS
-==========================================
+ROUTES/STATISTICS.PY - ESTATÍSTICAS E RELATÓRIOS
+================================================
 """
 
 from fastapi import APIRouter, HTTPException, Depends, Query
 from typing import Annotated, Optional
-from datetime import datetime, timedelta
+from datetime import datetime
 
 from app.models import User
 from app.database import db
-from app.auth import get_current_user  # ← CORRETO: Importa de auth.py
+from app.auth import get_current_user
 
 router = APIRouter()
 
 
-# ============================================================
+# =============================================================
 # ESTATÍSTICAS GERAIS
-# ============================================================
+# =============================================================
 
 @router.get("/overview")
 async def get_statistics_overview(
@@ -26,6 +26,7 @@ async def get_statistics_overview(
     Retorna visão geral das estatísticas do sistema.
     Apenas administradores e profissionais podem ver.
     """
+    
     if current_user.role not in ["admin", "profissional"]:
         raise HTTPException(
             status_code=403,
@@ -45,16 +46,23 @@ async def get_statistics_overview(
     # Agendamentos por status
     status_counts = {}
     for apt in appointments:
-        status = apt.get("status", "pendente")
-        status_counts[status] = status_counts.get(status, 0) + 1
+        apt_status = apt.get("status", "pendente")
+        status_counts[apt_status] = status_counts.get(apt_status, 0) + 1
     
     # Agendamentos este mês
     now = datetime.now()
     month_start = datetime(now.year, now.month, 1)
-    appointments_this_month = [
-        apt for apt in appointments
-        if datetime.fromisoformat(apt.get("created_at", "")) >= month_start
-    ]
+    appointments_this_month = []
+    
+    for apt in appointments:
+        created_at = apt.get("created_at", "")
+        if created_at:
+            try:
+                apt_date = datetime.fromisoformat(created_at)
+                if apt_date >= month_start:
+                    appointments_this_month.append(apt)
+            except ValueError:
+                pass
     
     return {
         "users": {
@@ -70,19 +78,18 @@ async def get_statistics_overview(
     }
 
 
-# ============================================================
+# =============================================================
 # ESTATÍSTICAS DE AGENDAMENTOS
-# ============================================================
+# =============================================================
 
 @router.get("/appointments")
 async def get_appointment_statistics(
+    current_user: Annotated[User, Depends(get_current_user)],
     start_date: Optional[str] = Query(None, description="Data inicial (YYYY-MM-DD)"),
-    end_date: Optional[str] = Query(None, description="Data final (YYYY-MM-DD)"),
-    current_user: Annotated[User, Depends(get_current_user)] = None
+    end_date: Optional[str] = Query(None, description="Data final (YYYY-MM-DD)")
 ):
-    """
-    Estatísticas detalhadas de agendamentos.
-    """
+    """Estatísticas detalhadas de agendamentos."""
+    
     if current_user.role not in ["admin", "profissional"]:
         raise HTTPException(
             status_code=403,
@@ -96,14 +103,14 @@ async def get_appointment_statistics(
         start = datetime.fromisoformat(start_date)
         appointments = [
             apt for apt in appointments
-            if datetime.fromisoformat(apt.get("data_hora", "")) >= start
+            if apt.get("data_hora") and datetime.fromisoformat(apt.get("data_hora")) >= start
         ]
     
     if end_date:
         end = datetime.fromisoformat(end_date)
         appointments = [
             apt for apt in appointments
-            if datetime.fromisoformat(apt.get("data_hora", "")) <= end
+            if apt.get("data_hora") and datetime.fromisoformat(apt.get("data_hora")) <= end
         ]
     
     # Agrupamentos
@@ -119,12 +126,18 @@ async def get_appointment_statistics(
         # Por serviço
         for service in apt.get("servicos", []):
             service_type = service.get("tipo")
-            by_service[service_type] = by_service.get(service_type, 0) + 1
+            if service_type:
+                by_service[service_type] = by_service.get(service_type, 0) + 1
         
         # Por dia da semana
-        data_hora = datetime.fromisoformat(apt.get("data_hora", ""))
-        day_name = data_hora.strftime("%A")
-        by_day[day_name] = by_day.get(day_name, 0) + 1
+        data_hora = apt.get("data_hora")
+        if data_hora:
+            try:
+                data_hora_obj = datetime.fromisoformat(data_hora)
+                day_name = data_hora_obj.strftime("%A")
+                by_day[day_name] = by_day.get(day_name, 0) + 1
+            except ValueError:
+                pass
     
     return {
         "total": len(appointments),
@@ -134,17 +147,16 @@ async def get_appointment_statistics(
     }
 
 
-# ============================================================
+# =============================================================
 # ESTATÍSTICAS DO PROFISSIONAL
-# ============================================================
+# =============================================================
 
 @router.get("/my-stats")
 async def get_my_statistics(
     current_user: Annotated[User, Depends(get_current_user)]
 ):
-    """
-    Estatísticas do profissional logado.
-    """
+    """Estatísticas do profissional logado."""
+    
     if current_user.role != "profissional":
         raise HTTPException(
             status_code=403,
@@ -158,23 +170,36 @@ async def get_my_statistics(
     total = len(appointments)
     by_status = {}
     for apt in appointments:
-        status = apt.get("status", "pendente")
-        by_status[status] = by_status.get(status, 0) + 1
+        apt_status = apt.get("status", "pendente")
+        by_status[apt_status] = by_status.get(apt_status, 0) + 1
     
     # Este mês
     now = datetime.now()
     month_start = datetime(now.year, now.month, 1)
-    this_month = [
-        apt for apt in appointments
-        if datetime.fromisoformat(apt.get("created_at", "")) >= month_start
-    ]
+    this_month = []
+    
+    for apt in appointments:
+        created_at = apt.get("created_at", "")
+        if created_at:
+            try:
+                apt_date = datetime.fromisoformat(created_at)
+                if apt_date >= month_start:
+                    this_month.append(apt)
+            except ValueError:
+                pass
     
     # Próximos agendamentos
-    upcoming = [
-        apt for apt in appointments
-        if apt.get("status") == "confirmado" and
-        datetime.fromisoformat(apt.get("data_hora", "")) >= now
-    ]
+    upcoming = []
+    for apt in appointments:
+        if apt.get("status") == "confirmado":
+            data_hora = apt.get("data_hora", "")
+            if data_hora:
+                try:
+                    apt_date = datetime.fromisoformat(data_hora)
+                    if apt_date >= now:
+                        upcoming.append(apt)
+                except ValueError:
+                    pass
     
     return {
         "total_appointments": total,
@@ -188,20 +213,18 @@ async def get_my_statistics(
     }
 
 
-# ============================================================
+# =============================================================
 # RELATÓRIO DE RECEITA (ADMIN)
-# ============================================================
+# =============================================================
 
 @router.get("/revenue")
 async def get_revenue_report(
+    current_user: Annotated[User, Depends(get_current_user)],
     start_date: Optional[str] = Query(None),
-    end_date: Optional[str] = Query(None),
-    current_user: Annotated[User, Depends(get_current_user)] = None
+    end_date: Optional[str] = Query(None)
 ):
-    """
-    Relatório de receita.
-    Apenas administradores.
-    """
+    """Relatório de receita. Apenas administradores."""
+    
     if current_user.role != "admin":
         raise HTTPException(
             status_code=403,
@@ -218,14 +241,16 @@ async def get_revenue_report(
         start = datetime.fromisoformat(start_date)
         completed = [
             apt for apt in completed
-            if datetime.fromisoformat(apt.get("completed_at", apt.get("data_hora", ""))) >= start
+            if apt.get("completed_at") or apt.get("data_hora")
+            and datetime.fromisoformat(apt.get("completed_at", apt.get("data_hora", ""))) >= start
         ]
     
     if end_date:
         end = datetime.fromisoformat(end_date)
         completed = [
             apt for apt in completed
-            if datetime.fromisoformat(apt.get("completed_at", apt.get("data_hora", ""))) <= end
+            if apt.get("completed_at") or apt.get("data_hora")
+            and datetime.fromisoformat(apt.get("completed_at", apt.get("data_hora", ""))) <= end
         ]
     
     # Calcula receita (se tiver preços nos serviços)
@@ -239,10 +264,13 @@ async def get_revenue_report(
             price = service.get("preco", 0)
             
             total_revenue += price
-            by_service[service_type] = by_service.get(service_type, 0) + price
+            
+            if service_type:
+                by_service[service_type] = by_service.get(service_type, 0) + price
             
             prof_id = apt.get("profissional_id")
-            by_professional[prof_id] = by_professional.get(prof_id, 0) + price
+            if prof_id:
+                by_professional[prof_id] = by_professional.get(prof_id, 0) + price
     
     return {
         "total_appointments": len(completed),

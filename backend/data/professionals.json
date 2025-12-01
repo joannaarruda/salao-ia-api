@@ -1,32 +1,63 @@
 [
-    {
-        "id": "1",
-        "nome": "Maria Silva",
-        "tipo_servico": "cabelo",
-        "especialidades": ["corte feminino", "coloração", "mechas"]
-    },
-    {
-        "id": "2",
-        "nome": "João Santos",
-        "tipo_servico": "cabelo",
-        "especialidades": ["corte masculino", "barba", "coloração"]
-    },
-    {
-        "id": "3",
-        "nome": "Ana Costa",
-        "tipo_servico": "cabelo",
-        "especialidades": ["corte feminino", "penteados", "tratamentos"]
-    },
-    {
-        "id": "4",
-        "nome": "Carla Mendes",
-        "tipo_servico": "unha",
-        "especialidades": ["manicure", "pedicure", "nail art"]
-    },
-    {
-        "id": "5",
-        "nome": "Paula Oliveira",
-        "tipo_servico": "unha",
-        "especialidades": ["manicure", "unhas de gel", "decoração"]
-    }
+  {
+    "id": "1",
+    "nome": "Maria Silva",
+    "tipo_servico": "cabelo",
+    "especialidades": [
+      "corte feminino",
+      "coloração",
+      "mechas",
+      "luzes",
+      "hidratação"
+    ],
+    "is_active": true
+  },
+  {
+    "id": "2",
+    "nome": "João Santos",
+    "tipo_servico": "cabelo",
+    "especialidades": [
+      "corte masculino",
+      "barba",
+      "coloração",
+      "retoque raiz"
+    ],
+    "is_active": true
+  },
+  {
+    "id": "3",
+    "nome": "Ana Costa",
+    "tipo_servico": "cabelo",
+    "especialidades": [
+      "corte feminino",
+      "penteados",
+      "tratamentos",
+      "hidratação profunda"
+    ],
+    "is_active": true
+  },
+  {
+    "id": "4",
+    "nome": "Carla Mendes",
+    "tipo_servico": "unha",
+    "especialidades": [
+      "manicure",
+      "pedicure",
+      "nail art",
+      "unhas gel"
+    ],
+    "is_active": true
+  },
+  {
+    "id": "5",
+    "nome": "Paula Oliveira",
+    "tipo_servico": "unha",
+    "especialidades": [
+      "manicure",
+      "unhas de gel",
+      "decoração",
+      "alongamento"
+    ],
+    "is_active": true
+  }
 ]

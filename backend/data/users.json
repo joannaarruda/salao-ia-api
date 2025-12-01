@@ -49,5 +49,16 @@
     "id": "296b00da-cda7-43bd-9352-153d6c9883d9",
     "created_at": "2025-11-23T23:19:00.677956",
     "role": "cliente"
+  },
+  {
+    "nome": "joanna",
+    "email": "joanna@example.com",
+    "telefone": "912984384",
+    "morada": "teste",
+    "senha": "$2b$12$fMj3IRciy7hqzTeurySLLeSQMfQjW7DHCNwkNgCk1DUxiP0k2IU/O",
+    "role": "cliente",
+    "id": "bcbb22f4-0284-4af9-af0e-d4599f100db8",
+    "created_at": "2025-11-30T17:59:08.637219",
+    "is_active": true
   }
 ]

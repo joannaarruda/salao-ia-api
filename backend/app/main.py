@@ -1,105 +1,259 @@
 """
-MAIN.PY - APLICAÇÃO PRINCIPAL
-==============================
+MAIN.PY - API PRINCIPAL DO SALÃO IA
+===================================
+Sistema completo com CORS configurado e servidor de frontend
 """
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
-from app.routes.admin import router as admin_router # ⬅️ ADICIONAR ESTA LINHA
-import os
-
-# ✅ IMPORT DIRETO DOS ROUTERS
-from app.routes.professionals import router as professionals_router
-from app.routes.auth import router as auth_router
-from app.routes.users import router as users_router
-from app.routes.appointments import router as appointments_router
-from app.routes.statistics import router as statistics_router
 from app.routes.ai import router as ai_router
-from app.routes.media import router as media_router
-from app.routes.medical import router as medical_router
-from app.routes.attendance import router as attendance_router
 
+import os
+from pathlib import Path
+
+# ============================================
+# CRIAR APP
+# ============================================
 app = FastAPI(
     title="Salão IA API",
-    description="Sistema completo de agendamento para salões de beleza",
-    version="2.0.0"
+    version="2.0.0",
+    description="Sistema Inteligente de Agendamento com Análise Facial por IA"
 )
 
-# CORS
+# ============================================
+# CONFIGURAR CORS
+# ============================================
+print("\n" + "="*70)
+print("🔧 Configurando CORS...")
+print("="*70)
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=[
+        "http://localhost:8000",
+        "http://127.0.0.1:8000",
+        "http://localhost:3000",
+        "null"
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# ✅ REGISTRAR ROUTERS
-print("\n🔧 Registrando routers...")
-app.include_router(auth_router, prefix="/api/v1/auth", tags=["auth"])
-print("  ✅ auth")
-app.include_router(users_router, prefix="/api/v1/users", tags=["users"])
-print("  ✅ users")
-app.include_router(appointments_router, prefix="/api/v1/appointments", tags=["appointments"])
-print("  ✅ appointments")
-app.include_router(professionals_router, prefix="/api/v1/professionals", tags=["professionals"])
-print("  ✅ professionals")
-app.include_router(statistics_router, prefix="/api/v1/statistics", tags=["statistics"])
-print("  ✅ statistics")
-app.include_router(ai_router, prefix="/api/v1/ai", tags=["ai"])
-print("  ✅ ai")
-app.include_router(media_router, prefix="/api/v1/media", tags=["media"])
-print("  ✅ media")
-app.include_router(medical_router, prefix="/api/v1/medical", tags=["medical"])
-print("  ✅ medical")
-app.include_router(attendance_router, prefix="/api/v1/attendance", tags=["attendance"])
-print("  ✅ attendance")
-app.include_router(admin_router, prefix="/api/v1/admin", tags=["admin"]) # ⬅️ ADICIONAR ESTA LINHA
+print("✅ CORS configurado")
 
-# STATIC FILES
-os.makedirs("static/uploads", exist_ok=True)
-os.makedirs("static/logos", exist_ok=True)
-os.makedirs("static/images", exist_ok=True)
-os.makedirs("static/attendance", exist_ok=True)
+# ============================================
+# CRIAR DIRETÓRIOS
+# ============================================
+print("\n🗂️  Criando diretórios...")
+
+directories = [
+    "static",
+    "static/uploads",
+    "static/profile_photos"
+]
+
+for directory in directories:
+    os.makedirs(directory, exist_ok=True)
+    print(f"✅ {directory}")
+
+# ============================================
+# SERVIR ARQUIVOS ESTÁTICOS
+# ============================================
+print("\n📁 Configurando arquivos estáticos...")
 
 app.mount("/static", StaticFiles(directory="static"), name="static")
+print("✅ /static montado")
 
-@app.get("/")
+# ============================================
+# IMPORTAR ROUTERS
+# ============================================
+print("\n🔧 Importando routers...")
+
+try:
+    from app.routes.auth import router as auth_router
+    print("✅ Router de autenticação")
+except ImportError as e:
+    print(f"⚠️  Erro: {e}")
+    auth_router = None
+
+try:
+    from app.routes.ai import router as ai_router
+    print("✅ Router de IA")
+except ImportError as e:
+    # Esta é a sua IA minimalista
+    print(f"⚠️ Erro ao importar o router AI (app.routes.ai): {e}")
+    ai_router = None
+
+try:
+    from app.routes.users import router as users_router
+    print("✅ Router de usuários")
+except ImportError as e:
+    print(f"⚠️  Erro: {e}")
+    users_router = None
+
+try:
+    from app.routes.appointments import router as appointments_router
+    print("✅ Router de agendamentos")
+except ImportError as e:
+    print(f"⚠️  Erro: {e}")
+    appointments_router = None
+
+try:
+    from app.routes.professionals import router as professionals_router
+    print("✅ Router de profissionais")
+except ImportError as e:
+    print(f"⚠️  Erro: {e}")
+    professionals_router = None
+
+# ============================================
+# REGISTRAR ROUTERS
+# ============================================
+print("\n📌 Registrando routers...")
+
+if auth_router:
+    app.include_router(auth_router, prefix="/api/v1/auth", tags=["🔐 Autenticação"])
+    print("✅ /api/v1/auth")
+
+if ai_router:
+    app.include_router(ai_router, prefix="/api/v1/ai", tags=["🤖 IA"])
+    print("✅ /api/v1/ai")
+
+if users_router:
+    app.include_router(users_router, prefix="/api/v1/users", tags=["👥 Usuários"])
+    print("✅ /api/v1/users")
+
+if appointments_router:
+    app.include_router(appointments_router, prefix="/api/v1/appointments", tags=["📅 Agendamentos"])
+    print("✅ /api/v1/appointments")
+
+if professionals_router:
+    app.include_router(professionals_router, prefix="/api/v1/professionals", tags=["💼 Profissionais"])
+    print("✅ /api/v1/professionals")
+
+# ============================================
+# ROTAS BÁSICAS
+# ============================================
+
+@app.get("/health", tags=["🏥 Health"])
+async def health_check():
+    """Health check"""
+    return {
+        "status": "healthy",
+        "version": "2.0.0",
+        "cors": "enabled"
+    }
+
+
+@app.get("/api/v1", tags=["📋 Info"])
+async def api_info():
+    """Informações da API"""
+    return {
+        "name": "Salão IA API",
+        "version": "2.0.0",
+        "endpoints": {
+            "auth": "/api/v1/auth",
+            "ai": "/api/v1/ai",
+            "users": "/api/v1/users",
+            "appointments": "/api/v1/appointments",
+            "professionals": "/api/v1/professionals"
+        }
+    }
+
+
+# ============================================
+# SERVIR FRONTEND
+# ============================================
+
+@app.get("/", tags=["🎨 Frontend"])
 async def serve_frontend():
-    """Serve o arquivo index.html"""
+    """
+    Serve o frontend HTML.
+    
+    Procura em:
+    1. ./index.html (raiz do backend)
+    2. ../frontend/index.html (pasta frontend ao lado)
+    """
+    
+    # Opção 1: index.html na raiz do backend
     if os.path.exists("index.html"):
+        print("📄 Servindo: ./index.html")
         return FileResponse("index.html")
-    return {"message": "Salão IA API v2.0 - Online", "docs": "/docs"}
+    
+    # Opção 2: index.html na pasta frontend (um nível acima)
+    frontend_path = Path("../frontend/index.html")
+    if frontend_path.exists():
+        print(f"📄 Servindo: {frontend_path}")
+        return FileResponse(str(frontend_path))
+    
+    # Não encontrou
+    return {
+        "error": "Frontend não encontrado",
+        "message": "Coloque index.html em:\n1. backend/index.html\nOU\n2. frontend/index.html",
+        "current_dir": os.getcwd(),
+        "tried": [
+            os.path.abspath("index.html"),
+            os.path.abspath("../frontend/index.html")
+        ]
+    }
 
-@app.get("/health")
-def health():
-    return {"status": "ok", "message": "API funcionando"}
+
+# ============================================
+# ERROR HANDLERS
+# ============================================
+
+from fastapi import Request
+from fastapi.responses import JSONResponse
+
+@app.exception_handler(404)
+async def not_found_handler(request: Request, exc):
+    return JSONResponse(
+        status_code=404,
+        content={
+            "detail": "Endpoint não encontrado",
+            "path": str(request.url),
+            "docs": "http://localhost:8000/docs"
+        }
+    )
+
+
+@app.exception_handler(500)
+async def internal_error_handler(request: Request, exc):
+    import traceback
+    error_traceback = traceback.format_exc()
+    
+    print("\n" + "="*70)
+    print("❌ ERRO INTERNO")
+    print("="*70)
+    print(error_traceback)
+    print("="*70 + "\n")
+    
+    return JSONResponse(
+        status_code=500,
+        content={
+            "detail": "Erro interno do servidor",
+            "message": str(exc)
+        }
+    )
+
+
+# ============================================
+# STARTUP
+# ============================================
 
 @app.on_event("startup")
 async def startup_event():
     print("\n" + "="*70)
-    print("🚀 SALÃO IA API INICIADA")
+    print("🚀 SALÃO IA API")
     print("="*70)
-    print("\n📋 Rotas Registradas:\n")
-    
-    routes_by_prefix = {}
-    for route in app.routes:
-        if hasattr(route, 'methods') and hasattr(route, 'path'):
-            prefix = route.path.split('/')[1:3]
-            prefix_str = '/'.join(prefix) if len(prefix) > 1 else route.path
-            if prefix_str not in routes_by_prefix:
-                routes_by_prefix[prefix_str] = []
-            methods = ', '.join(route.methods)
-            routes_by_prefix[prefix_str].append(f"  [{methods:12}] {route.path}")
-    
-    for prefix, routes in sorted(routes_by_prefix.items()):
-        print(f"\n{prefix}:")
-        for route in routes:
-            print(route)
-    
-    print("\n" + "="*70)
-    print("✅ API Online: http://localhost:8000")
-    print("📖 Documentação: http://localhost:8000/docs")
+    print("📍 API: http://localhost:8000")
+    print("📚 Docs: http://localhost:8000/docs")
+    print("🎨 Frontend: http://localhost:8000")
     print("="*70 + "\n")
+
+
+if __name__ == "__main__":
+    print("\n⚠️  Use: uvicorn app.main:app --reload")
+    print("Não execute este arquivo diretamente!\n")

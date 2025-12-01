@@ -1,18 +1,13 @@
 """
-DATABASE.PY - SISTEMA DE DATABASE EXPANDIDO
-============================================
-Gerencia todas as operações de dados incluindo:
-- Usuários, Settings, Profissionais
-- Agendamentos com múltiplos serviços
-- Histórico médico e consultas
-- Fichas de atendimento
-- Testes de mecha
+DATABASE.PY - SISTEMA DE DATABASE JSON
+=======================================
+Gerencia todas as operações de dados
 """
 
 import json
 import os
 from typing import Dict, List, Optional
-from datetime import datetime, timedelta
+from datetime import datetime
 import uuid
 
 
@@ -31,7 +26,8 @@ class JSONDatabase:
             "medical_history": os.path.join(data_dir, "medical_history.json"),
             "strand_tests": os.path.join(data_dir, "strand_tests.json"),
             "attendance_records": os.path.join(data_dir, "attendance_records.json"),
-            "consultations": os.path.join(data_dir, "consultations.json")
+            "consultations": os.path.join(data_dir, "consultations.json"),
+            "system_config": os.path.join(data_dir, "system_config.json")
         }
         
         self._initialize_files()
@@ -41,7 +37,7 @@ class JSONDatabase:
         """Inicializa todos os arquivos JSON"""
         for key, file_path in self.files.items():
             if not os.path.exists(file_path):
-                if key == "settings":
+                if key in ["settings", "system_config"]:
                     with open(file_path, 'w', encoding='utf-8') as f:
                         json.dump({}, f, ensure_ascii=False, indent=2)
                 else:
@@ -146,6 +142,42 @@ class JSONDatabase:
         with open(self.files["settings"], 'w', encoding='utf-8') as f:
             json.dump(data, f, ensure_ascii=False, indent=2, default=str)
     
+    # ===== DOCUMENT OPERATIONS (para system_config) =====
+    
+    def get_document(self, collection: str, doc_id: str) -> Optional[Dict]:
+        """Obtém documento de uma coleção"""
+        try:
+            file_path = self.files.get(collection, os.path.join(self.data_dir, f"{collection}.json"))
+            if os.path.exists(file_path):
+                with open(file_path, 'r', encoding='utf-8') as f:
+                    data = json.load(f)
+                    if isinstance(data, dict):
+                        return data.get(doc_id) or data
+                    return None
+            return None
+        except (json.JSONDecodeError, FileNotFoundError):
+            return None
+    
+    def update_document(self, collection: str, doc_id: str, data: Dict):
+        """Atualiza documento em uma coleção"""
+        file_path = self.files.get(collection, os.path.join(self.data_dir, f"{collection}.json"))
+        
+        try:
+            existing = {}
+            if os.path.exists(file_path):
+                with open(file_path, 'r', encoding='utf-8') as f:
+                    existing = json.load(f)
+        except (json.JSONDecodeError, FileNotFoundError):
+            existing = {}
+        
+        if isinstance(existing, dict):
+            existing[doc_id] = data
+        else:
+            existing = {doc_id: data}
+        
+        with open(file_path, 'w', encoding='utf-8') as f:
+            json.dump(existing, f, ensure_ascii=False, indent=2, default=str)
+    
     # ===== SETTINGS =====
     
     def get_settings(self) -> Dict:
@@ -196,17 +228,19 @@ class JSONDatabase:
         return next((u for u in users if u.get("id") == user_id), None)
     
     def get_all_users(self) -> List[Dict]:
-        """Lista todos usuários"""
+        """Lista todos os usuários"""
         return self._read_file("users")
     
-    def update_user_photo(self, user_id: str, photo_url: str) -> Optional[Dict]:
-        """Atualiza foto do usuário"""
+    def update_user(self, user_id: str, update_data: Dict) -> Optional[Dict]:
+        """Atualiza usuário"""
         users = self._read_file("users")
         updated_user = None
         
         for i, user in enumerate(users):
             if user.get("id") == user_id:
-                user["foto_perfil"] = photo_url
+                for key, value in update_data.items():
+                    if value is not None:
+                        user[key] = value
                 user["updated_at"] = datetime.now().isoformat()
                 updated_user = user
                 users[i] = user
@@ -215,6 +249,10 @@ class JSONDatabase:
         if updated_user:
             self._write_file("users", users)
         return updated_user
+    
+    def update_user_photo(self, user_id: str, photo_path: str) -> Optional[Dict]:
+        """Atualiza foto do usuário"""
+        return self.update_user(user_id, {"foto_perfil": photo_path})
     
     # ===== PROFESSIONALS =====
     
@@ -245,6 +283,11 @@ class JSONDatabase:
         self._write_file("appointments", appointments)
         return appointment_data
     
+    def get_appointment_by_id(self, appointment_id: str) -> Optional[Dict]:
+        """Busca agendamento por ID"""
+        appointments = self._read_file("appointments")
+        return next((a for a in appointments if a.get("id") == appointment_id), None)
+    
     def get_appointments_by_datetime(self, data_hora: str, profissional_id: str) -> List[Dict]:
         """Busca agendamentos por data/hora e profissional"""
         appointments = self._read_file("appointments")
@@ -272,6 +315,28 @@ class JSONDatabase:
         
         return result
     
+    def get_appointments_by_professional(self, profissional_id: str) -> List[Dict]:
+        """Lista agendamentos do profissional (alias)"""
+        return self.get_professional_appointments(profissional_id)
+    
+    def update_appointment(self, appointment_id: str, update_data: Dict) -> Optional[Dict]:
+        """Atualiza agendamento"""
+        appointments = self._read_file("appointments")
+        updated_appointment = None
+        
+        for i, apt in enumerate(appointments):
+            if apt.get("id") == appointment_id:
+                for key, value in update_data.items():
+                    apt[key] = value
+                apt["updated_at"] = datetime.now().isoformat()
+                updated_appointment = apt
+                appointments[i] = apt
+                break
+        
+        if updated_appointment:
+            self._write_file("appointments", appointments)
+        return updated_appointment
+    
     def update_appointment_status(self, appointment_id: str, status: str, profissional_id: Optional[str] = None) -> Optional[Dict]:
         """Atualiza status do agendamento"""
         appointments = self._read_file("appointments")
@@ -279,15 +344,13 @@ class JSONDatabase:
         
         for i, apt in enumerate(appointments):
             if apt.get("id") == appointment_id:
-                # Verifica se o profissional tem permissão
-                if profissional_id and apt.get("profissional_id") != profissional_id:
-                    return None
-                
                 apt["status"] = status
                 apt["updated_at"] = datetime.now().isoformat()
                 
                 if status == "confirmado":
                     apt["confirmed_at"] = datetime.now().isoformat()
+                    if profissional_id:
+                        apt["confirmed_by"] = profissional_id
                 elif status == "concluido":
                     apt["completed_at"] = datetime.now().isoformat()
                 
@@ -306,6 +369,7 @@ class JSONDatabase:
         histories = self._read_file("medical_history")
         history_data["id"] = str(uuid.uuid4())
         history_data["created_at"] = datetime.now().isoformat()
+        history_data["data_atualizacao"] = datetime.now().isoformat()
         histories.append(history_data)
         self._write_file("medical_history", histories)
         return history_data
@@ -325,7 +389,7 @@ class JSONDatabase:
                 for key, value in history_data.items():
                     if value is not None:
                         history[key] = value
-                history["updated_at"] = datetime.now().isoformat()
+                history["data_atualizacao"] = datetime.now().isoformat()
                 updated_history = history
                 histories[i] = history
                 break
@@ -387,7 +451,7 @@ class JSONDatabase:
                 break
         
         if updated_record:
-            self._write_file("attendance_records", updated_record)
+            self._write_file("attendance_records", records)
         return updated_record
     
     # ===== CONSULTATIONS =====

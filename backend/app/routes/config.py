@@ -1,101 +1,151 @@
-from fastapi import APIRouter, HTTPException, Depends, File, UploadFile, status
-from fastapi.security import OAuth2PasswordBearer
-from pydantic import BaseModel, Field
-from typing import Optional
-import json
-import os
-import shutil
+"""
+APP/CONFIG.PY - CONFIGURAÇÃO DE FEATURES
+========================================
+Configuração centralizada de funcionalidades habilitadas/desabilitadas
+"""
 
-# --- CONFIGURAÇÃO DE DIRETÓRIOS ---
-# Certifique-se de ter um diretório 'static/uploads' e servi-lo via FastAPI
-CONFIG_FILE = "config.json" # Assumindo que este arquivo está na raiz do projeto ou em um local acessível
-UPLOAD_DIR = "static/uploads"
-os.makedirs(UPLOAD_DIR, exist_ok=True)
-
-# --- MODELO Pydantic ---
-
-class Settings(BaseModel):
-    """Modelo para as configurações do sistema (cores e logo)."""
-    logo_url: str = Field("/static/images/default_logo.png", description="URL da logo.")
-    primary_color: str = Field("#007bff", description="Cor primária (ex: #RRGGBB).")
-    secondary_color: str = Field("#6c757d", description="Cor secundária (ex: #RRGGBB).")
+from typing import Dict, Any
+from pydantic import BaseModel
 
 
-# --- FUNÇÕES DE PERSISTÊNCIA (Simples I/O de JSON) ---
-
-def get_current_config() -> Settings:
-    """Carrega a configuração atual ou a padrão."""
-    try:
-        with open(CONFIG_FILE, "r") as f:
-            data = json.load(f)
-            return Settings(**data)
-    except (FileNotFoundError, json.JSONDecodeError):
-        # Se o arquivo não existir/for inválido, retorna o padrão e o cria
-        default_config = Settings()
-        save_config(default_config)
-        return default_config
-
-def save_config(config: Settings):
-    """Salva a configuração no arquivo JSON."""
-    with open(CONFIG_FILE, "w") as f:
-        json.dump(config.dict(), f, indent=4)
-
-# --- DEPENDÊNCIA ADMIN (MOCK) ---
-# **AVISO**: Esta é uma implementação MOCK. Substitua-a pelo seu código real.
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="auth/login")
-
-async def get_current_admin_user(token: str = Depends(oauth2_scheme)):
-    """Verifica o token e se o usuário tem o role 'admin'."""
-    # Sua lógica de verificação de JWT e role vai aqui. 
-    # Se o usuário não for admin, lance:
-    # raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Apenas administradores podem aceder.")
-    return {"id": "admin_user", "role": "admin"} # Retorna um objeto mock de admin
-
-# --- ROTAS ---
-
-router = APIRouter(prefix="/admin/config", tags=["Admin Configuração"])
-
-@router.get("/", response_model=Settings, summary="Obter Configuração Atual")
-async def get_system_config():
-    """Recupera as configurações atuais do sistema (logo e cores)."""
-    return get_current_config()
-
-@router.post("/", response_model=Settings, summary="Atualizar Configuração e Logo", status_code=status.HTTP_200_OK)
-async def update_system_config(
-    # Endpoint protegido por autenticação de admin
-    admin_user: dict = Depends(get_current_admin_user), 
-    primary_color: str = Field(..., max_length=7, pattern="^#[0-9a-fA-F]{6}$"),
-    secondary_color: str = Field(..., max_length=7, pattern="^#[0-9a-fA-F]{6}$"),
-    logo: Optional[UploadFile] = File(None, description="Opcional: Novo ficheiro de logo")
-):
-    """Atualiza as cores do sistema e, opcionalmente, faz upload de uma nova logo."""
+class FeatureFlags(BaseModel):
+    """Flags de funcionalidades"""
     
-    current_config = get_current_config()
+    # IA e Análise Facial
+    facial_analysis_enabled: bool = False  # Sistema de análise facial (Azure/Face++)
+    ai_hair_suggestions_enabled: bool = True  # Sugestões de IA (demo mode)
+    ai_demo_mode: bool = True  # Usar modo demo (sem APIs reais)
     
-    # 1. Processar a nova logo
-    if logo:
-        # Cria um nome de arquivo único e seguro
-        file_extension = os.path.splitext(logo.filename)[-1].lower()
-        logo_filename = f"logo_{os.urandom(8).hex()}{file_extension}"
-        file_path = os.path.join(UPLOAD_DIR, logo_filename)
-        
-        # Salva o arquivo no disco
-        try:
-            with open(file_path, "wb") as buffer:
-                shutil.copyfileobj(logo.file, buffer)
-            
-            # Atualiza a URL da logo para ser servida pelo backend
-            current_config.logo_url = f"/{UPLOAD_DIR}/{logo_filename}"
-            
-        except Exception as e:
-            print(f"Erro ao salvar a logo: {e}")
-            raise HTTPException(status_code=500, detail="Erro ao salvar o arquivo da logo.")
+    # Google Calendar
+    google_calendar_enabled: bool = False
     
-    # 2. Atualizar as cores
-    current_config.primary_color = primary_color
-    current_config.secondary_color = secondary_color
+    # Internacionalização
+    i18n_enabled: bool = False
     
-    # 3. Salvar as alterações
-    save_config(current_config)
+    # Teste de Mecha
+    strand_test_enabled: bool = True
+    strand_test_required_for_coloring: bool = False  # Tornar obrigatório para colorações
     
-    return current_config
+    # Consultas
+    consultation_required_for_first_time: bool = True  # Obrigatório para primeira vez
+    
+    # Upload de fotos
+    photo_upload_enabled: bool = True
+    max_photo_size_mb: int = 5
+    
+    # Notificações
+    email_notifications_enabled: bool = False
+    sms_notifications_enabled: bool = False
+    
+    # Pagamentos
+    online_payment_enabled: bool = False
+
+
+class APICredentials(BaseModel):
+    """Credenciais de APIs externas"""
+    
+    # Azure Face API
+    azure_face_api_key: str = ""
+    azure_face_endpoint: str = ""
+    
+    # Face++
+    facepp_api_key: str = ""
+    facepp_api_secret: str = ""
+    
+    # Google Calendar
+    google_calendar_credentials_path: str = ""
+    
+    # Outros
+    sendgrid_api_key: str = ""
+    twilio_account_sid: str = ""
+    twilio_auth_token: str = ""
+
+
+class AppConfig:
+    """Configuração principal da aplicação"""
+    
+    def __init__(self):
+        self.features = FeatureFlags()
+        self.credentials = APICredentials()
+        self.app_name = "Salão IA"
+        self.app_version = "2.0.0"
+        self.debug_mode = True
+    
+    def enable_feature(self, feature_name: str):
+        """Habilita uma funcionalidade"""
+        if hasattr(self.features, feature_name):
+            setattr(self.features, feature_name, True)
+            print(f"✅ Feature '{feature_name}' habilitada")
+        else:
+            print(f"⚠️ Feature '{feature_name}' não existe")
+    
+    def disable_feature(self, feature_name: str):
+        """Desabilita uma funcionalidade"""
+        if hasattr(self.features, feature_name):
+            setattr(self.features, feature_name, False)
+            print(f"❌ Feature '{feature_name}' desabilitada")
+        else:
+            print(f"⚠️ Feature '{feature_name}' não existe")
+    
+    def set_credential(self, credential_name: str, value: str):
+        """Define uma credencial"""
+        if hasattr(self.credentials, credential_name):
+            setattr(self.credentials, credential_name, value)
+            print(f"🔑 Credencial '{credential_name}' configurada")
+        else:
+            print(f"⚠️ Credencial '{credential_name}' não existe")
+    
+    def get_config_dict(self) -> Dict[str, Any]:
+        """Retorna configuração como dicionário"""
+        return {
+            "app_name": self.app_name,
+            "app_version": self.app_version,
+            "features": self.features.dict(),
+            "debug_mode": self.debug_mode
+        }
+
+
+# =============================================================================
+# FUNÇÕES AUXILIARES
+# =============================================================================
+
+def is_feature_enabled(feature_name: str) -> bool:
+    """Verifica se uma feature está habilitada"""
+    return getattr(config.features, feature_name, False)
+
+
+def get_api_credential(credential_name: str) -> str:
+    """Obtém uma credencial de API"""
+    return getattr(config.credentials, credential_name, "")
+
+
+def require_feature(feature_name: str):
+    """Decorator para verificar se uma feature está habilitada"""
+    def decorator(func):
+        async def wrapper(*args, **kwargs):
+            if not is_feature_enabled(feature_name):
+                from fastapi import HTTPException
+                raise HTTPException(
+                    status_code=503,
+                    detail=f"Funcionalidade '{feature_name}' não está habilitada"
+                )
+            return await func(*args, **kwargs)
+        return wrapper
+    return decorator
+
+
+# =============================================================================
+# INSTÂNCIA GLOBAL (CRIADA AUTOMATICAMENTE)
+# =============================================================================
+
+# Cria instância global de configuração
+config = AppConfig()
+
+print("\n" + "="*70)
+print("⚙️  CONFIGURAÇÃO CARREGADA")
+print("="*70)
+print(f"✅ Modo: {'DEMO' if config.features.ai_demo_mode else 'PRODUÇÃO'}")
+print(f"✅ Análise Facial: {'Habilitada' if config.features.facial_analysis_enabled else 'Desabilitada (use modo demo)'}")
+print(f"✅ Teste de Mecha: {'Habilitado' if config.features.strand_test_enabled else 'Desabilitado'}")
+print(f"✅ Consulta Obrigatória: {'Sim' if config.features.consultation_required_for_first_time else 'Não'}")
+print("="*70 + "\n")

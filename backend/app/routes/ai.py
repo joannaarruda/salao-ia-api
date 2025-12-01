@@ -1,135 +1,195 @@
+"""
+AI.PY MINIMALISTA - MODO DEMO GARANTIDO
+"""
+
 from fastapi import APIRouter, UploadFile, File, HTTPException, Depends
+from typing import Annotated, Optional
+import os
+
 from app.database import db
 from app.auth import get_current_user
 from app.models import User
-from app.ai.hair_style import edit_hair_style
-import os
 
 router = APIRouter()
 
 UPLOAD_DIR = "static/uploads"
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 
-@router.post("/suggestions")
-async def get_ai_suggestions(
-    user: User = Depends(get_current_user),
-    file: UploadFile = File(None),
-    style: str = "corte curto loiro"
-):
-    """
-    Gera uma imagem de sugestão de cabelo usando IA.
-    Aceita um novo arquivo ou usa a foto de perfil existente.
-    """
-    # 1. Busca o usuário atualizado no DB
-    db_user = db.get_user_by_id(user.id)
-    
-    if not db_user:
-        raise HTTPException(status_code=404, detail="Usuário não encontrado")
 
-    # 2. Decide qual foto usar
-    file_location = None
-    
-    if file:
-        # Se enviou um novo arquivo, salva temporariamente
-        file_location = os.path.join(UPLOAD_DIR, file.filename)
-        try:
-            with open(file_location, "wb") as f:
-                f.write(await file.read())
-            print(f"✅ Arquivo salvo em: {file_location}")
-        except Exception as e:
-            raise HTTPException(status_code=500, detail=f"Erro ao salvar arquivo: {str(e)}")
-            
-    elif db_user.get("foto_perfil"):
-        # Usa a foto de perfil existente
-        file_location = db_user["foto_perfil"].replace("\\", "/")
-        print(f"✅ Usando foto de perfil: {file_location}")
-    else:
-        raise HTTPException(status_code=400, detail="Nenhuma foto fornecida ou foto de perfil não encontrada")
+# =============================================================================
+# FUNÇÕES DE RECOMENDAÇÃO (MOCKADAS - MODO DEMO)
+# =============================================================================
 
-    # 3. Verifica se o arquivo realmente existe
-    if not os.path.exists(file_location):
-        raise HTTPException(
-            status_code=404, 
-            detail=f"Arquivo não encontrado no caminho: {file_location}"
-        )
-
-    # 4. Chama a função de IA
-    try:
-        print(f"🤖 Processando imagem com IA: {file_location}")
-        modified_image_bytes = edit_hair_style(file_location, style)
-    except FileNotFoundError as e:
-        raise HTTPException(status_code=404, detail=str(e))
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Erro na IA: {str(e)}")
-
-    # 5. Salva a imagem gerada com nome único
-    original_filename = os.path.basename(file_location)
-    output_filename = f"ai_{user.id}_{original_filename}"
-    output_path = os.path.join(UPLOAD_DIR, output_filename)
-    
-    try:
-        with open(output_path, "wb") as f:
-            f.write(modified_image_bytes)
-        print(f"✅ Imagem IA salva em: {output_path}")
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Erro ao salvar resultado: {str(e)}")
-
-    # 6. Retorna o caminho da imagem gerada (não atualiza a foto de perfil)
+def get_demo_recommendations():
+    """Retorna recomendações fixas em modo demo"""
     return {
-        "user_id": user.id,
-        "photo_ia_url": f"/static/uploads/{output_filename}",
-        "message": "Sugestão gerada com sucesso!"
+        "modo": "demo",
+        "formato_rosto": "oval",
+        "tom_pele": "neutro",
+        "confianca": 0.0,
+        "message": "Recomendações em modo demo. Habilite análise facial para resultados personalizados.",
+        "cortes_sugeridos": [
+            "Corte em camadas médias",
+            "Bob assimétrico",
+            "Franja lateral",
+            "Long bob (lob)",
+            "Ondas suaves"
+        ],
+        "cores_sugeridas": [
+            "Castanho chocolate",
+            "Loiro mel",
+            "Ruivo acobreado",
+            "Caramelo",
+            "Balayage natural"
+        ],
+        "dicas_estilo": [
+            "Procure criar volume no topo",
+            "Evite cortes muito retos",
+            "Tons quentes realçam sua pele"
+        ]
+    }
+
+
+# =============================================================================
+# ENDPOINTS
+# =============================================================================
+
+@router.get("/status")
+async def get_ai_status():
+    """Retorna status do sistema de IA"""
+    return {
+        "ai_demo_mode": True,
+        "facial_analysis_enabled": False,
+        "facial_analysis_available": False,
+        "features": {
+            "recommendations": True,
+            "photo_analysis": False,
+            "demo_mode": True
+        },
+        "message": "Sistema de IA em modo demo"
     }
 
 
 @router.post("/analyze")
 async def analyze_photo(
-    user: User = Depends(get_current_user)
+    current_user: Annotated[User, Depends(get_current_user)],
+    file: Optional[UploadFile] = File(None),
+    use_profile_photo: bool = False
 ):
     """
-    Analisa a foto de perfil do usuário e retorna sugestões.
+    Analisa foto e retorna recomendações (MODO DEMO)
     """
-    # 1. Busca usuário
-    db_user = db.get_user_by_id(user.id)
     
-    if not db_user:
-        raise HTTPException(status_code=404, detail="Usuário não encontrado")
+    print("🎭 Analisando foto em modo demo")
     
-    # 2. Verifica se tem foto de perfil
-    if not db_user.get("foto_perfil"):
-        raise HTTPException(status_code=400, detail="Nenhuma foto de perfil encontrada. Faça upload primeiro.")
+    # Salva a foto se foi enviada
+    if file:
+        file_location = os.path.join(UPLOAD_DIR, f"analysis_{current_user.id}_{file.filename}")
+        try:
+            contents = await file.read()
+            with open(file_location, "wb") as f:
+                f.write(contents)
+            print(f"✅ Arquivo salvo: {file_location}")
+        except Exception as e:
+            print(f"❌ Erro ao salvar: {e}")
     
-    file_location = db_user["foto_perfil"].replace("\\", "/")
+    # Retorna recomendações demo
+    recommendations = get_demo_recommendations()
     
-    # 3. Verifica se o arquivo existe
-    if not os.path.exists(file_location):
-        raise HTTPException(
-            status_code=404,
-            detail=f"Foto de perfil não encontrada no servidor: {file_location}"
-        )
-    
-    # 4. Aqui você pode implementar análise real com IA
-    # Por enquanto, retorna sugestões mockadas
     return {
-        "cortes_sugeridos": [
-            "Corte em camadas médias",
-            "Bob assimétrico",
-            "Franja lateral"
-        ],
-        "cores_sugeridas": [
-            "Castanho chocolate",
-            "Loiro mel",
-            "Ruivo acobreado"
-        ],
-        "estilos_recomendados": [
-            "Ondas suaves",
-            "Liso elegante",
-            "Cacheado natural"
-        ],
-        "cores_esmalte": [
-            "Vermelho clássico",
-            "Nude rosado",
-            "Azul marinho"
-        ],
-        "foto_analisada": file_location
+        **recommendations,
+        "user_id": current_user.id,
+        "foto_analisada": file.filename if file else None
+    }
+
+
+@router.post("/suggestions")
+async def get_ai_suggestions(
+    current_user: Annotated[User, Depends(get_current_user)],
+    file: Optional[UploadFile] = File(None)
+):
+    """
+    Gera sugestões visuais (mockado)
+    """
+    
+    if file:
+        file_location = os.path.join(UPLOAD_DIR, f"suggestion_{current_user.id}_{file.filename}")
+        contents = await file.read()
+        with open(file_location, "wb") as f:
+            f.write(contents)
+        
+        return {
+            "user_id": current_user.id,
+            "photo_ia_url": f"/static/uploads/suggestion_{current_user.id}_{file.filename}",
+            "message": "Sugestão gerada! (Modo demo)",
+            "note": "Em produção, usaria IA generativa para criar visualização"
+        }
+    
+    raise HTTPException(status_code=400, detail="Nenhuma foto fornecida")
+
+
+@router.get("/recommendations/{face_shape}/{skin_tone}")
+async def get_recommendations_by_type(
+    face_shape: str,
+    skin_tone: str,
+    current_user: Annotated[User, Depends(get_current_user)]
+):
+    """
+    Retorna recomendações por formato e tom específicos
+    """
+    
+    # Recomendações por formato
+    recommendations = {
+        "oval": {
+            "cuts": ["Praticamente qualquer estilo", "Long bob", "Franja lateral", "Pixie cut"],
+            "colors": ["Qualquer tonalidade funciona bem"]
+        },
+        "redondo": {
+            "cuts": ["Camadas longas", "Franja lateral assimétrica", "Long bob angular"],
+            "colors": ["Tons que criem contraste"]
+        },
+        "quadrado": {
+            "cuts": ["Ondas suaves", "Long bob ondulado", "Camadas no queixo"],
+            "colors": ["Tons suaves"]
+        }
+    }
+    
+    # Pega as recomendações ou usa padrão
+    format_recs = recommendations.get(face_shape.lower(), recommendations["oval"])
+    
+    return {
+        "formato_rosto": face_shape,
+        "tom_pele": skin_tone,
+        "cortes_recomendados": format_recs["cuts"],
+        "cores_recomendadas": format_recs["colors"],
+        "dicas": ["Consulte um profissional", "Considere sua rotina", "Experimente gradualmente"]
+    }
+
+
+@router.get("/face-shapes")
+async def get_available_face_shapes():
+    """Lista formatos de rosto"""
+    return {
+        "face_shapes": ["oval", "redondo", "quadrado", "coração", "diamante", "oblongo"],
+        "descriptions": {
+            "oval": "Formato equilibrado",
+            "redondo": "Largura e altura similares",
+            "quadrado": "Mandíbula angular",
+            "coração": "Testa larga, queixo pontiagudo",
+            "diamante": "Maçãs proeminentes",
+            "oblongo": "Rosto alongado"
+        }
+    }
+
+
+@router.get("/skin-tones")
+async def get_available_skin_tones():
+    """Lista tons de pele"""
+    return {
+        "skin_tones": ["quente", "frio", "neutro"],
+        "descriptions": {
+            "quente": "Tons dourados, amarelados",
+            "frio": "Tons rosados, azulados",
+            "neutro": "Equilíbrio entre quente e frio"
+        }
     }

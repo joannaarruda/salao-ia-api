@@ -1,75 +1,151 @@
-from fastapi import APIRouter, HTTPException, Depends
-from pydantic import BaseModel, Field
-from typing import Optional
-# Os imports internos de app.auth e app.database permanecem os mesmos
-from app.auth import get_current_user 
-from app.database import db 
+"""
+APP/CONFIG.PY - CONFIGURAÇÃO DE FEATURES
+========================================
+Configuração centralizada de funcionalidades habilitadas/desabilitadas
+"""
 
-router = APIRouter()
-
-# --- Modelos Pydantic ---
-# 1. Definição da Classe (O Blueprint)
-class AppSettings(BaseModel):
-    """
-    Define as configurações globais da aplicação (incluindo as de segurança).
-    """
-    APP_NAME: str = "Salão IA API"
-    # IMPORTANTE: A rota auth.py precisa destes valores!
-    SECRET_KEY: str = "chave-secreta-forte-que-voce-deve-mudar" 
-    ALGORITHM: str = "HS256"
-    ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
-    DATABASE_FILE: str = "database.json"
+from typing import Dict, Any
+from pydantic import BaseModel
 
 
-# 2. Instanciação do Objeto (A Variável a ser importada)
-# Esta linha cria a variável 'settings' que é exportada
-settings = AppSettings()
-
-class AdminConfig(BaseModel):
-    """Modelo para as configurações de tema e logo."""
-    primary_color: str = Field(default="#667eea", description="Cor primária do tema (CSS).")
-    secondary_color: str = Field(default="#764ba2", description="Cor secundária do tema (CSS).")
-    logo_url: str = Field(default="https://placehold.co/120x30/667eea/ffffff?text=Salão+IA", description="URL da imagem do logo.")
-
-
-# --- Helpers de Configuração ---
-
-CONFIG_COLLECTION = "system_config"
-CONFIG_DOC_ID = "main_config"
-
-def get_current_admin(current_user: dict = Depends(get_current_user)):
-    """Verifica se o usuário logado é um administrador."""
-    # Nota: Assumindo que o objeto retornado pelo backend após o login/get_current_user 
-    # contém o campo 'is_admin'.
-    if not current_user.get("is_admin"):
-        raise HTTPException(status_code=403, detail="Acesso negado. Requer privilégios de administrador.")
-    return current_user
-
-# --- Endpoints ---
-
-@router.get("/config", response_model=AdminConfig)
-async def get_admin_config():
-    """Obtém as configurações atuais do salão."""
-    config_data = db.get_document(CONFIG_COLLECTION, CONFIG_DOC_ID)
-    if not config_data:
-        # Retorna o modelo padrão se não houver dados salvos
-        return AdminConfig()
+class FeatureFlags(BaseModel):
+    """Flags de funcionalidades"""
     
-    # Valida e retorna os dados
-    return AdminConfig(**config_data)
+    # IA e Análise Facial
+    facial_analysis_enabled: bool = False  # Sistema de análise facial (Azure/Face++)
+    ai_hair_suggestions_enabled: bool = True  # Sugestões de IA (demo mode)
+    ai_demo_mode: bool = True  # Usar modo demo (sem APIs reais)
+    
+    # Google Calendar
+    google_calendar_enabled: bool = False
+    
+    # Internacionalização
+    i18n_enabled: bool = False
+    
+    # Teste de Mecha
+    strand_test_enabled: bool = True
+    strand_test_required_for_coloring: bool = False  # Tornar obrigatório para colorações
+    
+    # Consultas
+    consultation_required_for_first_time: bool = True  # Obrigatório para primeira vez
+    
+    # Upload de fotos
+    photo_upload_enabled: bool = True
+    max_photo_size_mb: int = 5
+    
+    # Notificações
+    email_notifications_enabled: bool = False
+    sms_notifications_enabled: bool = False
+    
+    # Pagamentos
+    online_payment_enabled: bool = False
 
-@router.post("/config/save", response_model=AdminConfig)
-async def save_admin_config_simple(
-    config_data_model: AdminConfig, # Recebe o objeto completo com as novas cores e logo_url
-    current_user: dict = Depends(get_current_admin)
-):
-    """Salva as configurações de tema e logo. Requer admin."""
+
+class APICredentials(BaseModel):
+    """Credenciais de APIs externas"""
     
-    config_data = config_data_model.model_dump()
+    # Azure Face API
+    azure_face_api_key: str = ""
+    azure_face_endpoint: str = ""
     
-    # Salvar na base de dados (o banco de dados deve persistir este documento único)
-    # Use 'update_document' pois o documento é único para as configurações do sistema.
-    db.update_document(CONFIG_COLLECTION, CONFIG_DOC_ID, config_data)
+    # Face++
+    facepp_api_key: str = ""
+    facepp_api_secret: str = ""
     
-    # Retorna a configuração atualizada
-    return await get_admin_config()
+    # Google Calendar
+    google_calendar_credentials_path: str = ""
+    
+    # Outros
+    sendgrid_api_key: str = ""
+    twilio_account_sid: str = ""
+    twilio_auth_token: str = ""
+
+
+class AppConfig:
+    """Configuração principal da aplicação"""
+    
+    def __init__(self):
+        self.features = FeatureFlags()
+        self.credentials = APICredentials()
+        self.app_name = "Salão IA"
+        self.app_version = "2.0.0"
+        self.debug_mode = True
+    
+    def enable_feature(self, feature_name: str):
+        """Habilita uma funcionalidade"""
+        if hasattr(self.features, feature_name):
+            setattr(self.features, feature_name, True)
+            print(f"✅ Feature '{feature_name}' habilitada")
+        else:
+            print(f"⚠️ Feature '{feature_name}' não existe")
+    
+    def disable_feature(self, feature_name: str):
+        """Desabilita uma funcionalidade"""
+        if hasattr(self.features, feature_name):
+            setattr(self.features, feature_name, False)
+            print(f"❌ Feature '{feature_name}' desabilitada")
+        else:
+            print(f"⚠️ Feature '{feature_name}' não existe")
+    
+    def set_credential(self, credential_name: str, value: str):
+        """Define uma credencial"""
+        if hasattr(self.credentials, credential_name):
+            setattr(self.credentials, credential_name, value)
+            print(f"🔑 Credencial '{credential_name}' configurada")
+        else:
+            print(f"⚠️ Credencial '{credential_name}' não existe")
+    
+    def get_config_dict(self) -> Dict[str, Any]:
+        """Retorna configuração como dicionário"""
+        return {
+            "app_name": self.app_name,
+            "app_version": self.app_version,
+            "features": self.features.dict(),
+            "debug_mode": self.debug_mode
+        }
+
+
+# =============================================================================
+# FUNÇÕES AUXILIARES
+# =============================================================================
+
+def is_feature_enabled(feature_name: str) -> bool:
+    """Verifica se uma feature está habilitada"""
+    return getattr(config.features, feature_name, False)
+
+
+def get_api_credential(credential_name: str) -> str:
+    """Obtém uma credencial de API"""
+    return getattr(config.credentials, credential_name, "")
+
+
+def require_feature(feature_name: str):
+    """Decorator para verificar se uma feature está habilitada"""
+    def decorator(func):
+        async def wrapper(*args, **kwargs):
+            if not is_feature_enabled(feature_name):
+                from fastapi import HTTPException
+                raise HTTPException(
+                    status_code=503,
+                    detail=f"Funcionalidade '{feature_name}' não está habilitada"
+                )
+            return await func(*args, **kwargs)
+        return wrapper
+    return decorator
+
+
+# =============================================================================
+# INSTÂNCIA GLOBAL (CRIADA AUTOMATICAMENTE)
+# =============================================================================
+
+# Cria instância global de configuração
+config = AppConfig()
+
+print("\n" + "="*70)
+print("⚙️  CONFIGURAÇÃO CARREGADA")
+print("="*70)
+print(f"✅ Modo: {'DEMO' if config.features.ai_demo_mode else 'PRODUÇÃO'}")
+print(f"✅ Análise Facial: {'Habilitada' if config.features.facial_analysis_enabled else 'Desabilitada (use modo demo)'}")
+print(f"✅ Teste de Mecha: {'Habilitado' if config.features.strand_test_enabled else 'Desabilitado'}")
+print(f"✅ Consulta Obrigatória: {'Sim' if config.features.consultation_required_for_first_time else 'Não'}")
+print("="*70 + "\n")
