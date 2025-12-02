@@ -4,11 +4,10 @@ MAIN.PY - API PRINCIPAL DO SALÃO IA
 Sistema completo com CORS configurado e servidor de frontend
 """
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse
-from app.routes.ai import router as ai_router
+from fastapi.responses import FileResponse, JSONResponse
 
 import os
 from pathlib import Path
@@ -83,7 +82,6 @@ try:
     from app.routes.ai import router as ai_router
     print("✅ Router de IA")
 except ImportError as e:
-    # Esta é a sua IA minimalista
     print(f"⚠️ Erro ao importar o router AI (app.routes.ai): {e}")
     ai_router = None
 
@@ -203,9 +201,6 @@ async def serve_frontend():
 # ============================================
 # ERROR HANDLERS
 # ============================================
-
-from fastapi import Request
-from fastapi.responses import JSONResponse
 
 @app.exception_handler(404)
 async def not_found_handler(request: Request, exc):

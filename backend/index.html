@@ -507,9 +507,37 @@
 
         <div class="card">
             <h2>📅 Agendamentos</h2>
-            <div class="alert alert-info">
-                <strong>💡 Em breve:</strong> Sistema completo de agendamentos!
+            <button onclick="showAppointmentsScreen()" class="button" style="width: 100%; margin-top: 10px;">
+                📅 Ver Meus Agendamentos
+            </button>
+        </div>
+    </div>
+
+    <!-- ==================== TELA DE AGENDAMENTOS ==================== -->
+    <div id="appointmentsScreen" style="display: none; max-width: 1000px; margin: 0 auto;">
+        <!-- Header -->
+        <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 30px; border-radius: 20px 20px 0 0; box-shadow: 0 4px 12px rgba(0,0,0,0.1);">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                <button onclick="hideAppointmentsScreen()" 
+                        style="background: rgba(255,255,255,0.2); color: white; border: none; padding: 10px 20px; border-radius: 8px; font-weight: 600; cursor: pointer;">
+                    ← Voltar
+                </button>
+                <button onclick="startNewBooking()" 
+                        style="background: white; color: #667eea; border: none; padding: 10px 20px; border-radius: 8px; font-weight: 600; cursor: pointer;">
+                    ➕ Novo Agendamento
+                </button>
             </div>
+            <div style="display: flex; align-items: center; gap: 16px;">
+                <div style="font-size: 48px;">📅</div>
+                <div>
+                    <h1 style="margin: 0; font-size: 32px; font-weight: 700;">Meus Agendamentos</h1>
+                    <p style="margin: 8px 0 0 0; opacity: 0.9;">Gerencie seus horários</p>
+                </div>
+            </div>
+        </div>
+        
+        <div style="background: #f7fafc; padding: 30px; border-radius: 0 0 20px 20px;">
+            <div id="appointmentsListScreen"></div>
         </div>
     </div>
 
@@ -544,11 +572,13 @@
         function showLogin() {
             document.getElementById('loginContainer').classList.add('active');
             document.getElementById('appContainer').classList.remove('active');
+            document.getElementById('appointmentsScreen').style.display = 'none';
         }
 
         function showApp() {
             document.getElementById('loginContainer').classList.remove('active');
             document.getElementById('appContainer').classList.add('active');
+            document.getElementById('appointmentsScreen').style.display = 'none';
             
             const user = JSON.parse(localStorage.getItem('user'));
             document.getElementById('userName').textContent = user.nome || user.email;
@@ -787,19 +817,12 @@
             const fileInput = document.getElementById('photoInput');
             const useProfilePhoto = document.getElementById('useProfilePhoto').checked;
             
-            console.log('🔍 Analisando:', { 
-                hasFile: !!fileInput.files[0], 
-                useProfile: useProfilePhoto,
-                token: authToken ? 'presente' : 'ausente'
-            });
-            
             if (!fileInput.files[0] && !useProfilePhoto) {
                 alert('Selecione uma foto ou marque "Usar foto de perfil"');
                 return;
             }
 
             if (!authToken) {
-                console.error('❌ Token não encontrado');
                 handleSessionExpired();
                 return;
             }
@@ -816,8 +839,6 @@
                 }
                 
                 const url = `${API_BASE}/ai/analyze?use_profile_photo=${useProfilePhoto}`;
-                console.log('📤 URL:', url);
-                console.log('📤 Token:', authToken.substring(0, 20) + '...');
                 
                 const response = await fetch(url, {
                     method: 'POST',
@@ -827,34 +848,21 @@
                     body: formData
                 });
 
-                console.log('📥 Status:', response.status, response.statusText);
-
                 if (response.status === 401) {
-                    console.error('❌ Erro 401: Token inválido ou expirado');
                     handleSessionExpired();
                     return;
                 }
 
                 if (!response.ok) {
-                    const errorText = await response.text();
-                    console.error('❌ Erro:', errorText);
-                    
-                    try {
-                        const errorJson = JSON.parse(errorText);
-                        throw new Error(errorJson.detail || `Erro ${response.status}`);
-                    } catch (e) {
-                        throw new Error(`Erro ${response.status}: ${errorText}`);
-                    }
+                    throw new Error(`Erro ${response.status}`);
                 }
 
                 const data = await response.json();
-                console.log('✅ Análise OK:', data);
-                
                 displayAnalysisResults(data);
 
             } catch (error) {
                 console.error('❌ Erro:', error);
-                alert(`Erro: ${error.message}\n\n🔒 Se a sessão expirou, faça login novamente.`);
+                alert(`Erro: ${error.message}`);
             } finally {
                 document.getElementById('analyzeText').classList.remove('hidden');
                 document.getElementById('analyzeLoading').classList.add('hidden');
@@ -863,9 +871,6 @@
         }
 
         function displayAnalysisResults(data) {
-            console.log('📊 Exibindo resultados');
-            
-            // Salvar recomendações globalmente
             window.currentRecommendations = data;
             
             document.getElementById('faceShape').textContent = data.formato_rosto.toUpperCase();
@@ -896,458 +901,655 @@
                 tipsEl.appendChild(li);
             });
 
-            // Adicionar botões de ação
-            addActionButtons();
-
             document.getElementById('analysisResults').classList.remove('hidden');
             
-            document.getElementById('analysisResults').scrollIntoView({ 
-                behavior: 'smooth',
-                block: 'start'
-            });
+            // Adicionar botões de ação
+            addActionButtons();
+            
+            document.getElementById('analysisResults').scrollIntoView({ behavior: 'smooth' });
         }
 
-        // ==================== BOTÕES DE AÇÃO ====================
+// ==================== ADICIONAR ESTE CÓDIGO NO index.html ====================
+// Cole este código ANTES da linha "// ==================== TELA DE AGENDAMENTOS ===================="
+
+// ==================== DADOS DOS SERVIÇOS ====================
+
+const SERVICES_DATA = {
+    cortes: [
+        { id: 'corte_feminino', name: 'Corte Feminino', duration: 60, price: 25 },
+        { id: 'corte_masculino', name: 'Corte Masculino', duration: 30, price: 15 },
+        { id: 'corte_infantil', name: 'Corte Infantil', duration: 30, price: 12 },
+        { id: 'long_bob', name: 'Long Bob', duration: 60, price: 25 },
+        { id: 'franja', name: 'Franja', duration: 15, price: 8 }
+    ],
+    coloracao: [
+        { id: 'coloracao_completa', name: 'Coloração Completa', duration: 120, price: 45, requiresTest: true },
+        { id: 'retoque_raiz', name: 'Retoque de Raiz', duration: 90, price: 30, requiresTest: true },
+        { id: 'luzes_mechas', name: 'Luzes/Mechas', duration: 180, price: 60, requiresTest: true },
+        { id: 'balayage', name: 'Balayage', duration: 150, price: 70, requiresTest: true },
+        { id: 'reflexos', name: 'Reflexos', duration: 90, price: 35, requiresTest: true }
+    ],
+    tratamentos: [
+        { id: 'hidratacao', name: 'Hidratação Profunda', duration: 90, price: 35 },
+        { id: 'cauterizacao', name: 'Cauterização', duration: 120, price: 45, requiresTest: true },
+        { id: 'reconstrucao', name: 'Reconstrução', duration: 120, price: 50, requiresTest: true },
+        { id: 'botox', name: 'Botox Capilar', duration: 150, price: 60, requiresTest: true }
+    ],
+    outros: [
+        { id: 'escova', name: 'Escova', duration: 45, price: 20 },
+        { id: 'penteado', name: 'Penteado', duration: 60, price: 30 },
+        { id: 'maquiagem', name: 'Maquiagem', duration: 60, price: 40 }
+    ]
+};
+
+let selectedServices = [];
+
+// ==================== BOTÕES DE AÇÃO APÓS ANÁLISE ====================
+
+function addActionButtons() {
+    const resultsDiv = document.getElementById('analysisResults');
+    const existing = document.getElementById('actionButtons');
+    if (existing) existing.remove();
+    
+    const actionsDiv = document.createElement('div');
+    actionsDiv.id = 'actionButtons';
+    actionsDiv.style.cssText = 'margin-top: 30px; padding: 20px; background: #f7fafc; border-radius: 12px; border-left: 4px solid #667eea;';
+    
+    actionsDiv.innerHTML = `
+        <h4 style="color: #667eea; margin-bottom: 15px;">📅 Próximos Passos</h4>
+        <p style="color: #666; margin-bottom: 20px;">
+            Gostou das recomendações? Agende agora!
+        </p>
+        <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+            <button class="button" onclick="showAllServices()" style="background: #667eea;">
+                📋 Selecionar Serviços
+            </button>
+            <button class="button" onclick="analyzeAgain()" style="background: #ed8936;">
+                🔄 Nova Análise
+            </button>
+        </div>
+    `;
+    
+    resultsDiv.appendChild(actionsDiv);
+}
+
+function showAllServices() {
+    showServiceSelectionModal([], null);
+}
+
+function analyzeAgain() {
+    const fileInput = document.getElementById('photoInput');
+    fileInput.value = '';
+    
+    const fileUpload = document.getElementById('fileUpload');
+    fileUpload.querySelector('div').innerHTML = `
+        <p style="font-size: 48px;">📷</p>
+        <p style="font-weight: 600;">Clique ou arraste uma foto aqui</p>
+        <p style="font-size: 12px; color: #718096;">PNG, JPG até 5MB</p>
+    `;
+    
+    document.getElementById('useProfilePhoto').checked = false;
+    document.getElementById('analysisResults').classList.add('hidden');
+    fileUpload.scrollIntoView({ behavior: 'smooth', block: 'center' });
+}
+
+// ==================== MODAL DE SELEÇÃO DE SERVIÇOS ====================
+
+function showServiceSelectionModal(recommendedIds = [], analysisData = null) {
+    const existing = document.getElementById('servicesModal');
+    if (existing) existing.remove();
+    
+    const modal = document.createElement('div');
+    modal.id = 'servicesModal';
+    modal.className = 'modal active';
+    
+    const categoryNames = {
+        cortes: '✂️ Cortes',
+        coloracao: '🎨 Coloração',
+        tratamentos: '💆 Tratamentos',
+        outros: '✨ Outros Serviços'
+    };
+    
+    let servicesHtml = '';
+    Object.entries(SERVICES_DATA).forEach(([category, services]) => {
+        servicesHtml += `
+            <div style="margin-bottom: 30px;">
+                <h3 style="color: #667eea; margin-bottom: 15px; font-size: 18px;">
+                    ${categoryNames[category]}
+                </h3>
+                <div style="display: grid; gap: 12px;">
+        `;
         
-        function addActionButtons() {
-            const resultsDiv = document.getElementById('analysisResults');
-            
-            // Remove botões existentes se houver
-            const existing = document.getElementById('actionButtons');
-            if (existing) existing.remove();
-            
-            // Cria div de ações
-            const actionsDiv = document.createElement('div');
-            actionsDiv.id = 'actionButtons';
-            actionsDiv.style.cssText = 'margin-top: 30px; padding: 20px; background: #f7fafc; border-radius: 12px; border-left: 4px solid #667eea;';
-            
-            actionsDiv.innerHTML = `
-                <h4 style="color: #667eea; margin-bottom: 15px;">📅 Próximos Passos</h4>
-                <p style="color: #666; margin-bottom: 20px;">
-                    Gostou das recomendações? Escolha como deseja prosseguir:
-                </p>
-                
-                <div style="display: flex; gap: 10px; flex-wrap: wrap;">
-                    <button class="button" onclick="bookWithRecommendations()" style="background: #48bb78;">
-                        ✅ Agendar com Recomendações
-                    </button>
-                    <button class="button" onclick="showAllServices()" style="background: #4299e1;">
-                        📋 Ver Todos os Serviços
-                    </button>
-                    <button class="button" onclick="analyzeAgain()" style="background: #ed8936;">
-                        🔄 Nova Análise
-                    </button>
-                </div>
+        services.forEach(service => {
+            const checkboxId = `service_${service.id}`;
+            servicesHtml += `
+                <label for="${checkboxId}" style="display: flex; align-items: center; padding: 18px; border: 2px solid #e2e8f0; background: white; border-radius: 12px; cursor: pointer;">
+                    <input type="checkbox" id="${checkboxId}" onchange="toggleService('${service.id}')" style="width: 22px; height: 22px; margin-right: 18px; cursor: pointer;">
+                    <div style="flex: 1;">
+                        <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
+                            <strong style="color: #2d3748;">${service.name}</strong>
+                            ${service.requiresTest ? '<span style="background: #ed8936; color: white; padding: 3px 10px; border-radius: 12px; font-size: 11px;">⚠️ Teste 48h</span>' : ''}
+                        </div>
+                        <div style="color: #718096; font-size: 15px;">
+                            ⏱️ ${service.duration} min | 💰 €${service.price}
+                        </div>
+                    </div>
+                </label>
             `;
-            
-            resultsDiv.appendChild(actionsDiv);
-        }
-
-        function bookWithRecommendations() {
-            const data = window.currentRecommendations;
-            if (!data) {
-                alert('❌ Nenhuma análise disponível. Analise uma foto primeiro.');
-                return;
-            }
-            
-            // Criar lista de serviços recomendados
-            const recommendedServices = [];
-            
-            // Mapear cortes recomendados para IDs reais
-            data.cortes_sugeridos.slice(0, 3).forEach(cut => {
-                if (cut.toLowerCase().includes('camadas')) {
-                    recommendedServices.push('corte_feminino');
-                } else if (cut.toLowerCase().includes('bob')) {
-                    recommendedServices.push('long_bob');
-                } else if (cut.toLowerCase().includes('franja')) {
-                    recommendedServices.push('franja');
-                }
-            });
-            
-            // Mapear cores recomendadas
-            data.cores_sugeridas.slice(0, 2).forEach(color => {
-                if (color.toLowerCase().includes('balayage')) {
-                    recommendedServices.push('balayage');
-                } else if (color.toLowerCase().includes('reflexos')) {
-                    recommendedServices.push('reflexos');
-                } else {
-                    recommendedServices.push('coloracao_completa');
-                }
-            });
-            
-            showServiceSelectionModal(recommendedServices, data);
-        }
-
-        function showAllServices() {
-            showServiceSelectionModal([], null);
-        }
-
-        // ==================== SISTEMA DE SELEÇÃO DE SERVIÇOS ====================
+        });
         
-        const SERVICES_DATA = {
-            cortes: [
-                { id: 'corte_feminino', name: 'Corte Feminino', duration: 60, price: 25 },
-                { id: 'corte_masculino', name: 'Corte Masculino', duration: 30, price: 15 },
-                { id: 'corte_infantil', name: 'Corte Infantil', duration: 30, price: 12 },
-                { id: 'long_bob', name: 'Long Bob', duration: 60, price: 25 },
-                { id: 'franja', name: 'Franja', duration: 15, price: 8 }
-            ],
-            coloracao: [
-                { id: 'coloracao_completa', name: 'Coloração Completa', duration: 120, price: 45, requiresTest: true },
-                { id: 'retoque_raiz', name: 'Retoque de Raiz', duration: 90, price: 30, requiresTest: true },
-                { id: 'luzes_mechas', name: 'Luzes/Mechas', duration: 180, price: 60, requiresTest: true },
-                { id: 'balayage', name: 'Balayage', duration: 150, price: 70, requiresTest: true },
-                { id: 'reflexos', name: 'Reflexos', duration: 90, price: 35, requiresTest: true }
-            ],
-            tratamentos: [
-                { id: 'hidratacao', name: 'Hidratação Profunda', duration: 90, price: 35 },
-                { id: 'cauterizacao', name: 'Cauterização', duration: 120, price: 45, requiresTest: true },
-                { id: 'reconstrucao', name: 'Reconstrução', duration: 120, price: 50, requiresTest: true },
-                { id: 'botox', name: 'Botox Capilar', duration: 150, price: 60, requiresTest: true }
-            ],
-            outros: [
-                { id: 'escova', name: 'Escova', duration: 45, price: 20 },
-                { id: 'penteado', name: 'Penteado', duration: 60, price: 30 },
-                { id: 'maquiagem', name: 'Maquiagem', duration: 60, price: 40 }
-            ]
+        servicesHtml += '</div></div>';
+    });
+    
+    modal.innerHTML = `
+        <div class="modal-content" style="max-width: 800px; width: 100%; max-height: 90vh; overflow-y: auto; text-align: left;">
+            <div style="display: flex; justify-content: space-between; margin-bottom: 20px; position: sticky; top: 0; background: white; padding-bottom: 15px; border-bottom: 2px solid #e2e8f0;">
+                <h2 style="color: #667eea; margin: 0;">✨ Selecione os Serviços</h2>
+                <button onclick="closeServicesModal()" style="background: none; border: none; font-size: 28px; cursor: pointer; color: #718096;">×</button>
+            </div>
+            
+            ${servicesHtml}
+            
+            <div style="position: sticky; bottom: 0; background: white; border-top: 2px solid #e2e8f0; padding-top: 20px; margin-top: 30px;">
+                <div style="background: #f7fafc; padding: 20px; border-radius: 12px; margin-bottom: 15px;">
+                    <div style="display: flex; justify-content: space-between;">
+                        <div>
+                            <div style="color: #718096; font-size: 13px;">Total</div>
+                            <span id="totalPrice" style="font-size: 32px; font-weight: 700; color: #667eea;">€0</span>
+                        </div>
+                        <div style="text-align: right;">
+                            <div style="color: #718096; font-size: 14px;"><span id="totalDuration">0 min</span></div>
+                            <div style="color: #718096; font-size: 14px;"><span id="totalServices">0 serviços</span></div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div id="testWarning" style="display: none; background: #fff5f5; border: 2px solid #fc8181; border-radius: 10px; padding: 15px; margin-bottom: 15px;">
+                    <strong style="color: #c53030;">⚠️ Atenção:</strong> Alguns serviços requerem teste de mecha 48h antes.
+                </div>
+                
+                <div style="display: flex; gap: 12px;">
+                    <button onclick="closeServicesModal()" class="button" style="flex: 1; background: #e2e8f0; color: #2d3748;">Cancelar</button>
+                    <button onclick="confirmServices()" class="button" style="flex: 2;">📅 Continuar</button>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    document.body.appendChild(modal);
+    selectedServices = [];
+}
+
+function findServiceById(id) {
+    for (const category in SERVICES_DATA) {
+        const service = SERVICES_DATA[category].find(s => s.id === id);
+        if (service) return service;
+    }
+    return null;
+}
+
+function toggleService(serviceId) {
+    const service = findServiceById(serviceId);
+    if (!service) return;
+    
+    const index = selectedServices.findIndex(s => s.id === serviceId);
+    if (index >= 0) {
+        selectedServices.splice(index, 1);
+    } else {
+        selectedServices.push(service);
+    }
+    
+    updateCartSummary();
+}
+
+function updateCartSummary() {
+    const totalPrice = selectedServices.reduce((sum, s) => sum + s.price, 0);
+    const totalDuration = selectedServices.reduce((sum, s) => sum + s.duration, 0);
+    const hasTestRequired = selectedServices.some(s => s.requiresTest);
+    
+    document.getElementById('totalPrice').textContent = `€${totalPrice}`;
+    document.getElementById('totalDuration').textContent = `${totalDuration} min`;
+    document.getElementById('totalServices').textContent = `${selectedServices.length} serviço${selectedServices.length !== 1 ? 's' : ''}`;
+    
+    const testWarning = document.getElementById('testWarning');
+    testWarning.style.display = hasTestRequired ? 'block' : 'none';
+}
+
+function closeServicesModal() {
+    const modal = document.getElementById('servicesModal');
+    if (modal) modal.remove();
+    selectedServices = [];
+}
+
+function confirmServices() {
+    if (selectedServices.length === 0) {
+        alert('⚠️ Selecione pelo menos um serviço!');
+        return;
+    }
+    
+    const hasTestRequired = selectedServices.some(s => s.requiresTest);
+    const servicesToSave = [...selectedServices];
+    
+    closeServicesModal();
+    
+    if (hasTestRequired) {
+        window.pendingServices = servicesToSave;
+        showMedicalQuestionnaire();
+    } else {
+        proceedToBooking(servicesToSave, null);
+    }
+}
+
+// ==================== QUESTIONÁRIO MÉDICO ====================
+
+function showMedicalQuestionnaire() {
+    const existing = document.getElementById('medicalModal');
+    if (existing) existing.remove();
+    
+    const modal = document.createElement('div');
+    modal.id = 'medicalModal';
+    modal.className = 'modal active';
+    
+    modal.innerHTML = `
+        <div class="modal-content" style="max-width: 700px; width: 100%; max-height: 90vh; overflow-y: auto; text-align: left;">
+            <h2 style="color: #667eea; margin-bottom: 20px;">📋 Questionário de Saúde Capilar</h2>
+            
+            <div class="alert alert-danger" style="margin-bottom: 25px;">
+                <strong>⚠️ Importante:</strong> Responda com sinceridade para sua segurança.
+            </div>
+            
+            <form id="medicalForm">
+                <div style="margin-bottom: 20px; padding: 20px; background: #f7fafc; border-radius: 12px;">
+                    <label style="display: block; font-weight: 600; margin-bottom: 12px;">1. Tem alergia a produtos químicos?</label>
+                    <div style="display: flex; gap: 15px; margin-bottom: 10px;">
+                        <label><input type="radio" name="q1" value="sim" required> Sim</label>
+                        <label><input type="radio" name="q1" value="nao" required> Não</label>
+                    </div>
+                    <input type="text" id="q1_details" placeholder="Especifique quais..." style="width: 100%; padding: 10px; border: 1px solid #e2e8f0; border-radius: 8px; display: none;">
+                </div>
+                
+                <div style="margin-bottom: 20px; padding: 20px; background: #f7fafc; border-radius: 12px;">
+                    <label style="display: block; font-weight: 600; margin-bottom: 12px;">2. Já teve reação alérgica a coloração?</label>
+                    <div style="display: flex; gap: 15px;">
+                        <label><input type="radio" name="q2" value="sim" required> Sim</label>
+                        <label><input type="radio" name="q2" value="nao" required> Não</label>
+                    </div>
+                </div>
+                
+                <div style="margin-bottom: 20px; padding: 20px; background: #f7fafc; border-radius: 12px;">
+                    <label style="display: block; font-weight: 600; margin-bottom: 12px;">3. Fez procedimento químico nos últimos 15 dias?</label>
+                    <div style="display: flex; gap: 15px; margin-bottom: 10px;">
+                        <label><input type="radio" name="q3" value="sim" required> Sim</label>
+                        <label><input type="radio" name="q3" value="nao" required> Não</label>
+                    </div>
+                    <input type="text" id="q3_details" placeholder="Qual procedimento?" style="width: 100%; padding: 10px; border: 1px solid #e2e8f0; border-radius: 8px; display: none;">
+                </div>
+                
+                <div style="margin-bottom: 20px; padding: 20px; background: #f7fafc; border-radius: 12px;">
+                    <label style="display: block; font-weight: 600; margin-bottom: 12px;">4. Couro cabeludo sensível ou irritado?</label>
+                    <div style="display: flex; gap: 15px;">
+                        <label><input type="radio" name="q4" value="sim" required> Sim</label>
+                        <label><input type="radio" name="q4" value="nao" required> Não</label>
+                    </div>
+                </div>
+                
+                <div style="margin-bottom: 20px; padding: 20px; background: #f7fafc; border-radius: 12px;">
+                    <label style="display: block; font-weight: 600; margin-bottom: 12px;">5. Está grávida ou amamentando?</label>
+                    <div style="display: flex; gap: 15px;">
+                        <label><input type="radio" name="q5" value="sim" required> Sim</label>
+                        <label><input type="radio" name="q5" value="nao" required> Não</label>
+                        <label><input type="radio" name="q5" value="na" required> N/A</label>
+                    </div>
+                </div>
+                
+                <div style="margin-bottom: 20px; padding: 20px; background: #f7fafc; border-radius: 12px;">
+                    <label style="display: block; font-weight: 600; margin-bottom: 12px;">Observações (opcional)</label>
+                    <textarea id="observations" rows="3" style="width: 100%; padding: 12px; border: 1px solid #e2e8f0; border-radius: 8px;"></textarea>
+                </div>
+                
+                <div style="padding: 20px; background: #f0fff4; border: 2px solid #48bb78; border-radius: 12px; margin-bottom: 20px;">
+                    <label style="display: flex; gap: 12px;">
+                        <input type="checkbox" id="acceptTerms" required style="width: 20px; height: 20px;">
+                        <span style="font-size: 14px;">Declaro que as informações são verdadeiras e autorizo o teste de mecha.</span>
+                    </label>
+                </div>
+                
+                <div style="display: flex; gap: 12px;">
+                    <button type="button" onclick="closeMedicalModal()" class="button" style="flex: 1; background: #e2e8f0; color: #2d3748;">Cancelar</button>
+                    <button type="submit" class="button" style="flex: 2;">✅ Confirmar</button>
+                </div>
+            </form>
+        </div>
+    `;
+    
+    document.body.appendChild(modal);
+    
+    document.querySelector('input[name="q1"][value="sim"]').onchange = () => document.getElementById('q1_details').style.display = 'block';
+    document.querySelector('input[name="q1"][value="nao"]').onchange = () => document.getElementById('q1_details').style.display = 'none';
+    document.querySelector('input[name="q3"][value="sim"]').onchange = () => document.getElementById('q3_details').style.display = 'block';
+    document.querySelector('input[name="q3"][value="nao"]').onchange = () => document.getElementById('q3_details').style.display = 'none';
+    
+    document.getElementById('medicalForm').onsubmit = async (e) => {
+        e.preventDefault();
+        
+        const q2 = document.querySelector('input[name="q2"]:checked').value;
+        const q4 = document.querySelector('input[name="q4"]:checked').value;
+        
+        if (q2 === 'sim' || q4 === 'sim') {
+            alert('⚠️ ATENÇÃO!\n\nPara sua segurança, não podemos realizar procedimentos químicos.\n\nConsulte um dermatologista primeiro.');
+            closeMedicalModal();
+            return;
+        }
+        
+        const medicalData = {
+            q1: document.querySelector('input[name="q1"]:checked').value,
+            q1_details: document.getElementById('q1_details').value,
+            q2: q2,
+            q3: document.querySelector('input[name="q3"]:checked').value,
+            q3_details: document.getElementById('q3_details').value,
+            q4: q4,
+            q5: document.querySelector('input[name="q5"]:checked').value,
+            observations: document.getElementById('observations').value,
+            timestamp: new Date().toISOString()
         };
+        
+        const servicesToBook = window.pendingServices;
+        closeMedicalModal();
+        proceedToBooking(servicesToBook, medicalData);
+    };
+}
 
-        let selectedServices = [];
+function closeMedicalModal() {
+    const modal = document.getElementById('medicalModal');
+    if (modal) modal.remove();
+}
 
-        function showServiceSelectionModal(recommendedIds = [], analysisData = null) {
-            const existing = document.getElementById('servicesModal');
-            if (existing) existing.remove();
+// ==================== PROCESSAR AGENDAMENTO ====================
+
+async function proceedToBooking(services, medicalData) {
+    if (!services || services.length === 0) {
+        alert('❌ Erro: Nenhum serviço selecionado.');
+        return;
+    }
+    
+    const bookingData = {
+        services: services,
+        medical_questionnaire: medicalData,
+        analysis_data: window.currentRecommendations || null,
+        total_price: services.reduce((sum, s) => sum + s.price, 0),
+        total_duration: services.reduce((sum, s) => sum + s.duration, 0),
+        created_at: new Date().toISOString()
+    };
+    
+    try {
+        const response = await fetch(`${API_BASE}/appointments/prepare`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${authToken}`
+            },
+            body: JSON.stringify(bookingData)
+        });
+        
+        if (response.ok) {
+            const result = await response.json();
+            showDateTimeSelector(result.booking_code, bookingData);
+        } else {
+            showDateTimeSelector('LOCAL-' + Date.now(), bookingData);
+        }
+    } catch (error) {
+        showDateTimeSelector('LOCAL-' + Date.now(), bookingData);
+    }
+}
+
+// ==================== SELETOR DE DATA/HORA ====================
+
+function showDateTimeSelector(bookingCode, bookingData) {
+    const existing = document.getElementById('dateTimeModal');
+    if (existing) existing.remove();
+    
+    const modal = document.createElement('div');
+    modal.id = 'dateTimeModal';
+    modal.className = 'modal active';
+    
+    const requiresTest = bookingData.services.some(s => s.requiresTest);
+    
+    modal.innerHTML = `
+        <div class="modal-content" style="max-width: 600px; text-align: left;">
+            <h2 style="color: #667eea; margin-bottom: 10px;">📅 Agendar Data e Hora</h2>
+            <p style="color: #718096; margin-bottom: 20px;">Código: ${bookingCode}</p>
             
-            const modal = document.createElement('div');
-            modal.id = 'servicesModal';
-            modal.style.cssText = `
-                position: fixed;
-                top: 0;
-                left: 0;
-                width: 100%;
-                height: 100%;
-                background: rgba(0, 0, 0, 0.5);
-                display: flex;
-                justify-content: center;
-                align-items: center;
-                z-index: 1000;
-                animation: fadeIn 0.3s;
-                overflow-y: auto;
-                padding: 20px;
-            `;
-            
-            const modalContent = document.createElement('div');
-            modalContent.style.cssText = `
-                background: white;
-                border-radius: 20px;
-                padding: 30px;
-                max-width: 800px;
-                width: 100%;
-                max-height: 90vh;
-                overflow-y: auto;
-                box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
-            `;
-            
-            let html = `
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; position: sticky; top: 0; background: white; padding-bottom: 15px; border-bottom: 2px solid #e2e8f0;">
-                    <h2 style="color: #667eea; margin: 0;">✨ Selecione os Serviços</h2>
-                    <button onclick="closeServicesModal()" style="background: none; border: none; font-size: 28px; cursor: pointer; color: #718096; line-height: 1;" onmouseover="this.style.color='#667eea'" onmouseout="this.style.color='#718096'">×</button>
+            <div style="background: #f7fafc; padding: 15px; border-radius: 12px; margin-bottom: 20px;">
+                <strong>📋 Serviços:</strong>
+                <ul style="margin: 10px 0 0 0; padding-left: 20px;">
+                    ${bookingData.services.map(s => `<li>${s.name} (${s.duration}min - €${s.price})</li>`).join('')}
+                </ul>
+                <div style="margin-top: 10px;">
+                    <strong>💰 Total:</strong> €${bookingData.total_price} | 
+                    <strong>⏱️ Duração:</strong> ${Math.floor(bookingData.total_duration/60)}h ${bookingData.total_duration%60}min
                 </div>
-            `;
+            </div>
             
-            if (analysisData) {
-                html += `
-                    <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 20px; border-radius: 12px; margin-bottom: 25px; color: white;">
-                        <div style="display: flex; align-items: center; gap: 15px; margin-bottom: 10px;">
-                            <div style="font-size: 48px;">👤</div>
-                            <div>
-                                <p style="margin: 0; font-size: 18px; font-weight: 600;">Seu Perfil Analisado</p>
-                                <p style="margin: 5px 0 0 0; opacity: 0.9;">Formato: ${analysisData.formato_rosto.toUpperCase()} • Tom: ${analysisData.tom_pele.toUpperCase()}</p>
-                            </div>
-                        </div>
-                        <div style="background: rgba(255,255,255,0.2); padding: 12px; border-radius: 8px; border-left: 3px solid white;">
-                            <p style="margin: 0; font-size: 14px;">💡 <strong>Dica:</strong> ${analysisData.dicas_estilo[0]}</p>
-                        </div>
-                    </div>
-                `;
-            }
+            ${requiresTest ? `
+                <div class="alert alert-warning" style="margin-bottom: 20px;">
+                    <strong>⚠️ Lembre-se:</strong> Agende teste de mecha 48h ANTES deste agendamento!
+                </div>
+            ` : ''}
             
-            html += '<div>';
-            
-            const categoryNames = {
-                cortes: '✂️ Cortes',
-                coloracao: '🎨 Coloração',
-                tratamentos: '💆 Tratamentos',
-                outros: '✨ Outros Serviços'
-            };
-            
-            Object.entries(SERVICES_DATA).forEach(([category, services]) => {
-                html += `
-                    <div style="margin-bottom: 30px;">
-                        <h3 style="color: #667eea; margin-bottom: 15px; font-size: 18px; display: flex; align-items: center; gap: 8px;">
-                            ${categoryNames[category]}
-                            <span style="background: #e2e8f0; color: #718096; padding: 2px 10px; border-radius: 12px; font-size: 12px; font-weight: normal;">${services.length}</span>
-                        </h3>
-                        <div style="display: grid; gap: 12px;">
-                `;
+            <form id="dateTimeForm">
+                <div style="margin-bottom: 20px;">
+                    <label style="display: block; font-weight: 600; margin-bottom: 8px;">Data:</label>
+                    <input type="date" id="appointmentDate" required 
+                           min="${new Date().toISOString().split('T')[0]}"
+                           style="width: 100%; padding: 12px; border: 1px solid #e2e8f0; border-radius: 8px;">
+                </div>
                 
-                services.forEach(service => {
-                    const isRecommended = recommendedIds.includes(service.id);
-                    const checkboxId = `service_${service.id}`;
-                    
-                    html += `
-                        <label for="${checkboxId}" style="
-                            display: flex;
-                            align-items: center;
-                            padding: 18px;
-                            border: 2px solid ${isRecommended ? '#48bb78' : '#e2e8f0'};
-                            background: ${isRecommended ? '#f0fff4' : 'white'};
-                            border-radius: 12px;
-                            cursor: pointer;
-                            transition: all 0.2s;
-                        " onmouseover="this.style.borderColor='#667eea'; this.style.transform='translateX(5px)'; this.style.boxShadow='0 4px 12px rgba(102, 126, 234, 0.15)';" 
-                           onmouseout="this.style.borderColor='${isRecommended ? '#48bb78' : '#e2e8f0'}'; this.style.transform='translateX(0)'; this.style.boxShadow='none';">
-                            
-                            <input type="checkbox" 
-                                   id="${checkboxId}"
-                                   onchange="toggleService('${service.id}')" 
-                                   ${isRecommended ? 'checked' : ''}
-                                   style="width: 22px; height: 22px; margin-right: 18px; cursor: pointer; accent-color: #667eea;">
-                            
-                            <div style="flex: 1;">
-                                <div style="display: flex; align-items: center; flex-wrap: wrap; gap: 8px; margin-bottom: 8px;">
-                                    <strong style="color: #2d3748; font-size: 17px;">${service.name}</strong>
-                                    ${isRecommended ? '<span style="background: #48bb78; color: white; padding: 3px 10px; border-radius: 12px; font-size: 11px; font-weight: 600;">✨ Recomendado</span>' : ''}
-                                    ${service.requiresTest ? '<span style="background: #ed8936; color: white; padding: 3px 10px; border-radius: 12px; font-size: 11px; font-weight: 600;">⚠️ Teste 48h</span>' : ''}
-                                </div>
-                                <div style="color: #718096; font-size: 15px; display: flex; align-items: center; gap: 15px;">
-                                    <span style="display: flex; align-items: center; gap: 5px;">
-                                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                            <circle cx="12" cy="12" r="10"></circle>
-                                            <polyline points="12 6 12 12 16 14"></polyline>
-                                        </svg>
-                                        ${service.duration} min
-                                    </span>
-                                    <span style="display: flex; align-items: center; gap: 5px; font-weight: 600; color: #667eea;">
-                                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                            <line x1="12" y1="1" x2="12" y2="23"></line>
-                                            <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path>
-                                        </svg>
-                                        €${service.price}
-                                    </span>
-                                </div>
-                            </div>
-                        </label>
-                    `;
-                });
+                <div style="margin-bottom: 20px;">
+                    <label style="display: block; font-weight: 600; margin-bottom: 8px;">Hora:</label>
+                    <select id="appointmentTime" required style="width: 100%; padding: 12px; border: 1px solid #e2e8f0; border-radius: 8px;">
+                        <option value="">Selecione a data primeiro...</option>
+                    </select>
+                </div>
                 
-                html += '</div></div>';
-            });
+                <div style="margin-bottom: 20px;">
+                    <label style="display: block; font-weight: 600; margin-bottom: 8px;">Observações (opcional):</label>
+                    <textarea id="appointmentNotes" rows="3" placeholder="Algum pedido especial?" 
+                              style="width: 100%; padding: 12px; border: 1px solid #e2e8f0; border-radius: 8px;"></textarea>
+                </div>
+                
+                <div style="display: flex; gap: 12px;">
+                    <button type="button" onclick="closeDateTimeModal()" class="button" style="flex: 1; background: #e2e8f0; color: #2d3748;">Cancelar</button>
+                    <button type="submit" class="button" style="flex: 2;">✅ Confirmar</button>
+                </div>
+            </form>
+        </div>
+    `;
+    
+    document.body.appendChild(modal);
+    
+    document.getElementById('appointmentDate').addEventListener('change', loadAvailableSlots);
+    document.getElementById('dateTimeForm').addEventListener('submit', (e) => {
+        e.preventDefault();
+        confirmSchedule(bookingCode, bookingData);
+    });
+}
+
+function loadAvailableSlots() {
+    const dateInput = document.getElementById('appointmentDate');
+    const timeSelect = document.getElementById('appointmentTime');
+    
+    if (!dateInput.value) return;
+    
+    timeSelect.innerHTML = '<option value="">Selecione um horário</option>';
+    for (let hour = 9; hour < 18; hour++) {
+        ['00', '30'].forEach(minute => {
+            const time = `${hour.toString().padStart(2, '0')}:${minute}`;
+            const option = document.createElement('option');
+            option.value = time;
+            option.textContent = time;
+            timeSelect.appendChild(option);
+        });
+    }
+}
+
+function confirmSchedule(bookingCode, bookingData) {
+    const date = document.getElementById('appointmentDate').value;
+    const time = document.getElementById('appointmentTime').value;
+    const notes = document.getElementById('appointmentNotes').value;
+    
+    if (!time) {
+        alert('⚠️ Selecione um horário!');
+        return;
+    }
+    
+    const appointment = {
+        booking_code: bookingCode,
+        appointment_date: date,
+        appointment_time: time,
+        notes: notes,
+        services: bookingData.services,
+        total_price: bookingData.total_price,
+        total_duration: bookingData.total_duration,
+        requires_test: bookingData.services.some(s => s.requiresTest),
+        status: 'scheduled',
+        created_at: new Date().toISOString()
+    };
+    
+    let appointments = JSON.parse(localStorage.getItem('user_appointments') || '[]');
+    appointments.push(appointment);
+    localStorage.setItem('user_appointments', JSON.stringify(appointments));
+    
+    closeDateTimeModal();
+    
+    alert(`✅ AGENDAMENTO CONFIRMADO!\n\n📅 Data: ${date}\n⏰ Hora: ${time}\n🎫 Código: ${bookingCode}`);
+    
+    showAppointmentsScreen();
+}
+
+function closeDateTimeModal() {
+    const modal = document.getElementById('dateTimeModal');
+    if (modal) modal.remove();
+}
+        // ==================== TELA DE AGENDAMENTOS ====================
+
+        function showAppointmentsScreen() {
+            document.getElementById('loginContainer').style.display = 'none';
+            document.getElementById('appContainer').style.display = 'none';
+            document.getElementById('appointmentsScreen').style.display = 'block';
+            loadAppointmentsForScreen();
+        }
+
+        function hideAppointmentsScreen() {
+            document.getElementById('appointmentsScreen').style.display = 'none';
+            document.getElementById('appContainer').style.display = 'block';
+        }
+
+        function loadAppointmentsForScreen() {
+            const appointments = JSON.parse(localStorage.getItem('user_appointments') || '[]');
+            const container = document.getElementById('appointmentsListScreen');
             
-            html += '</div>';
-            
-            html += `
-                <div style="
-                    position: sticky;
-                    bottom: 0;
-                    background: white;
-                    border-top: 2px solid #e2e8f0;
-                    padding-top: 20px;
-                    margin-top: 30px;
-                ">
-                    <div style="background: #f7fafc; padding: 20px; border-radius: 12px; margin-bottom: 15px;">
-                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
-                            <div>
-                                <div style="color: #718096; font-size: 13px; margin-bottom: 4px;">Total a Pagar</div>
-                                <span id="totalPrice" style="font-size: 32px; font-weight: 700; color: #667eea;">€0</span>
-                            </div>
-                            <div style="text-align: right;">
-                                <div style="color: #718096; font-size: 14px; margin-bottom: 4px;">
-                                    <span id="totalDuration">0 min</span>
-                                </div>
-                                <div style="color: #718096; font-size: 14px;">
-                                    <span id="totalServices">0 serviços</span>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <div id="testWarning" class="hidden" style="
-                        background: #fff5f5;
-                        border: 2px solid #fc8181;
-                        border-radius: 10px;
-                        padding: 15px;
-                        margin-bottom: 15px;
-                        display: none;
-                    ">
-                        <div style="display: flex; align-items: start; gap: 12px;">
-                            <span style="font-size: 24px;">⚠️</span>
-                            <div>
-                                <strong style="color: #c53030; display: block; margin-bottom: 4px;">Atenção: Teste de Mecha Obrigatório</strong>
-                                <p style="margin: 0; color: #742a2a; font-size: 14px;">
-                                    Alguns serviços selecionados requerem teste de mecha 48 horas antes do procedimento para garantir sua segurança.
-                                </p>
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <div style="display: flex; gap: 12px;">
-                        <button onclick="closeServicesModal()" style="
-                            flex: 1;
-                            padding: 16px;
-                            background: #e2e8f0;
-                            color: #2d3748;
-                            border: none;
-                            border-radius: 12px;
-                            font-size: 16px;
-                            font-weight: 600;
-                            cursor: pointer;
-                            transition: all 0.2s;
-                        " onmouseover="this.style.background='#cbd5e0'" 
-                           onmouseout="this.style.background='#e2e8f0'">
-                            Cancelar
-                        </button>
-                        <button onclick="confirmServices()" style="
-                            flex: 2;
-                            padding: 16px;
-                            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-                            color: white;
-                            border: none;
-                            border-radius: 12px;
-                            font-size: 16px;
-                            font-weight: 600;
-                            cursor: pointer;
-                            transition: all 0.2s;
-                        " onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 8px 20px rgba(102, 126, 234, 0.4)'" 
-                           onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='none'">
-                            📅 Continuar com Agendamento
+            if (appointments.length === 0) {
+                container.innerHTML = `
+                    <div style="text-align: center; padding: 60px 20px;">
+                        <div style="font-size: 64px; margin-bottom: 20px;">📅</div>
+                        <h3 style="color: #2d3748; margin-bottom: 10px;">Nenhum agendamento ainda</h3>
+                        <p style="margin-bottom: 30px; color: #718096;">Faça sua análise facial e agende um horário!</p>
+                        <button onclick="startNewBooking()" class="button">
+                            ➕ Novo Agendamento
                         </button>
                     </div>
-                </div>
-            `;
-            
-            modalContent.innerHTML = html;
-            modal.appendChild(modalContent);
-            document.body.appendChild(modal);
-            
-            // Inicializar serviços recomendados
-            selectedServices = [];
-            if (recommendedIds.length > 0) {
-                recommendedIds.forEach(id => {
-                    const service = findServiceById(id);
-                    if (service) {
-                        selectedServices.push(service);
-                    }
-                });
-                updateCartSummary();
-            }
-        }
-
-        function findServiceById(id) {
-            for (const category in SERVICES_DATA) {
-                const service = SERVICES_DATA[category].find(s => s.id === id);
-                if (service) return service;
-            }
-            return null;
-        }
-
-        function toggleService(serviceId) {
-            const service = findServiceById(serviceId);
-            if (!service) return;
-            
-            const index = selectedServices.findIndex(s => s.id === serviceId);
-            
-            if (index >= 0) {
-                selectedServices.splice(index, 1);
-            } else {
-                selectedServices.push(service);
-            }
-            
-            updateCartSummary();
-        }
-
-        function updateCartSummary() {
-            const totalPrice = selectedServices.reduce((sum, s) => sum + s.price, 0);
-            const totalDuration = selectedServices.reduce((sum, s) => sum + s.duration, 0);
-            const hasTestRequired = selectedServices.some(s => s.requiresTest);
-            
-            document.getElementById('totalPrice').textContent = `€${totalPrice}`;
-            document.getElementById('totalDuration').textContent = `${totalDuration} min`;
-            document.getElementById('totalServices').textContent = `${selectedServices.length} ${selectedServices.length === 1 ? 'serviço' : 'serviços'}`;
-            
-            const testWarning = document.getElementById('testWarning');
-            if (hasTestRequired) {
-                testWarning.style.display = 'block';
-            } else {
-                testWarning.style.display = 'none';
-            }
-        }
-
-        function closeServicesModal() {
-            const modal = document.getElementById('servicesModal');
-            if (modal) modal.remove();
-            selectedServices = [];
-        }
-
-        function confirmServices() {
-            if (selectedServices.length === 0) {
-                alert('⚠️ Por favor, selecione pelo menos um serviço!');
+                `;
                 return;
             }
             
-            const hasTestRequired = selectedServices.some(s => s.requiresTest);
-            const totalPrice = selectedServices.reduce((sum, s) => sum + s.price, 0);
-            const totalDuration = selectedServices.reduce((sum, s) => sum + s.duration, 0);
+            appointments.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
             
-            let message = `✅ SERVIÇOS SELECIONADOS\n\n`;
-            
-            selectedServices.forEach(service => {
-                message += `• ${service.name} (${service.duration} min - €${service.price})`;
-                if (service.requiresTest) message += ` ⚠️ Requer teste`;
-                message += `\n`;
-            });
-            
-            message += `\n💰 Total: €${totalPrice}\n`;
-            message += `⏱️ Duração total: ${totalDuration} min (${Math.floor(totalDuration / 60)}h ${totalDuration % 60}min)\n`;
-            
-            if (hasTestRequired) {
-                message += `\n⚠️ IMPORTANTE:\nAlguns serviços requerem teste de mecha 48 horas antes!\nAgende o teste primeiro.\n`;
-            }
-            
-            message += `\n📅 Sistema de agendamento online em desenvolvimento!\n\nPor enquanto, entre em contato:\n📞 Telefone: (21) 1234-5678\n📧 Email: contato@salaoia.com\n\nMencione estes serviços ao agendar!`;
-            
-            alert(message);
-            closeServicesModal();
+            container.innerHTML = appointments.map((apt, index) => {
+                const date = new Date(apt.appointment_date);
+                const formattedDate = date.toLocaleDateString('pt-PT');
+                const statusColor = apt.status === 'scheduled' ? '#48bb78' : '#fc8181';
+                const statusText = apt.status === 'scheduled' ? 'AGENDADO' : 'CANCELADO';
+                
+                return `
+                    <div style="background: white; border: 3px solid ${statusColor}; border-radius: 16px; padding: 24px; margin-bottom: 20px; box-shadow: 0 4px 12px rgba(0,0,0,0.08);">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; padding-bottom: 16px; border-bottom: 2px solid #f7fafc;">
+                            <div>
+                                <h3 style="margin: 0; color: #667eea; font-size: 18px;">${apt.services[0].name}</h3>
+                                ${apt.services.length > 1 ? `<p style="margin: 4px 0 0 0; color: #718096; font-size: 13px;">+${apt.services.length-1} serviço(s)</p>` : ''}
+                            </div>
+                            <div style="background: ${statusColor}; color: white; padding: 8px 16px; border-radius: 20px; font-weight: 700; font-size: 12px;">
+                                ${statusText}
+                            </div>
+                        </div>
+                        
+                        <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; margin-bottom: 20px;">
+                            <div style="background: #f7fafc; padding: 12px; border-radius: 8px;">
+                                <div style="color: #718096; font-size: 12px; font-weight: 600; margin-bottom: 4px;">📅 DATA</div>
+                                <div style="color: #2d3748; font-size: 16px; font-weight: 700;">${formattedDate}</div>
+                            </div>
+                            <div style="background: #f7fafc; padding: 12px; border-radius: 8px;">
+                                <div style="color: #718096; font-size: 12px; font-weight: 600; margin-bottom: 4px;">🕐 HORÁRIO</div>
+                                <div style="color: #2d3748; font-size: 16px; font-weight: 700;">${apt.appointment_time}</div>
+                            </div>
+                            <div style="background: #f7fafc; padding: 12px; border-radius: 8px;">
+                                <div style="color: #718096; font-size: 12px; font-weight: 600; margin-bottom: 4px;">💰 VALOR</div>
+                                <div style="color: #2d3748; font-size: 16px; font-weight: 700;">€${apt.total_price}</div>
+                            </div>
+                            <div style="background: #f7fafc; padding: 12px; border-radius: 8px;">
+                                <div style="color: #718096; font-size: 12px; font-weight: 600; margin-bottom: 4px;">⏱️ DURAÇÃO</div>
+                                <div style="color: #2d3748; font-size: 16px; font-weight: 700;">${Math.floor(apt.total_duration/60)}h ${apt.total_duration%60}m</div>
+                            </div>
+                        </div>
+                        
+                        <div style="background: #edf2f7; padding: 16px; border-radius: 8px; margin-bottom: 16px;">
+                            <strong style="color: #4a5568; font-size: 13px;">✨ SERVIÇOS:</strong>
+                            <ul style="margin: 10px 0 0 0; padding-left: 20px;">
+                                ${apt.services.map(s => `<li style="color: #2d3748; font-size: 14px;">${s.name}</li>`).join('')}
+                            </ul>
+                        </div>
+                        
+                        ${apt.status === 'scheduled' ? `
+                            <div style="display: flex; gap: 12px; padding-top: 16px; border-top: 2px solid #f7fafc;">
+                                <button onclick="showAppointmentDetails(${index})" class="button" style="flex: 1;">
+                                    👁️ Ver Detalhes
+                                </button>
+                                <button onclick="cancelAppointmentFromScreen(${index})" 
+                                        style="flex: 1; padding: 12px; background: #fed7d7; color: #c53030; border: none; border-radius: 8px; font-weight: 600; cursor: pointer;">
+                                    ❌ Cancelar
+                                </button>
+                            </div>
+                        ` : ''}
+                    </div>
+                `;
+            }).join('');
         }
 
-        function analyzeAgain() {
-            // Limpa a foto selecionada
-            const fileInput = document.getElementById('photoInput');
-            fileInput.value = '';
+        function showAppointmentDetails(index) {
+            const appointments = JSON.parse(localStorage.getItem('user_appointments') || '[]');
+            const apt = appointments[index];
             
-            // Reseta a área de upload
-            const fileUpload = document.getElementById('fileUpload');
-            const uploadDiv = fileUpload.querySelector('div');
-            uploadDiv.innerHTML = `
-                <p style="font-size: 48px;">📷</p>
-                <p style="font-weight: 600;">Clique ou arraste uma foto aqui</p>
-                <p style="font-size: 12px; color: #718096;">PNG, JPG até 5MB</p>
-            `;
+            const servicesText = apt.services.map(s => `• ${s.name} (${s.duration}min - €${s.price})`).join('\n');
             
-            // Desmarca checkbox
-            document.getElementById('useProfilePhoto').checked = false;
-            
-            // Esconde resultados
-            document.getElementById('analysisResults').classList.add('hidden');
-            
-            // Scroll para upload
-            fileUpload.scrollIntoView({ 
-                behavior: 'smooth',
-                block: 'center'
-            });
-            
-            console.log('🔄 Pronto para nova análise');
+            alert(`📋 DETALHES DO AGENDAMENTO\n\n📅 Data: ${apt.appointment_date}\n🕐 Hora: ${apt.appointment_time}\n\n✨ Serviços:\n${servicesText}\n\n💰 Total: €${apt.total_price}\n⏱️ Duração: ${Math.floor(apt.total_duration/60)}h ${apt.total_duration%60}min${apt.notes ? '\n\n📝 Observações: ' + apt.notes : ''}`);
         }
+
+        function cancelAppointmentFromScreen(index) {
+            if (!confirm('Tem certeza que deseja cancelar este agendamento?')) return;
+            
+            let appointments = JSON.parse(localStorage.getItem('user_appointments') || '[]');
+            appointments[index].status = 'cancelled';
+            appointments[index].cancelled_at = new Date().toISOString();
+            localStorage.setItem('user_appointments', JSON.stringify(appointments));
+            
+            alert('✅ Agendamento cancelado com sucesso!');
+            loadAppointmentsForScreen();
+        }
+
+        function startNewBooking() {
+            hideAppointmentsScreen();
+            document.getElementById('fileUpload').scrollIntoView({ behavior: 'smooth' });
+        }
+
     </script>
 </body>
 </html>

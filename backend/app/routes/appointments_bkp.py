@@ -1,13 +1,13 @@
-# app/routes/appointments.py - VERSÃO MÍNIMA PARA TESTE
+# app/routes/appointments.py - ADICIONAR ESTAS ROTAS
 
-from fastapi import APIRouter, HTTPException, status
-from typing import List, Optional, Dict, Any
+from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy.orm import Session
+from typing import List, Optional
 from datetime import datetime, timedelta
 from pydantic import BaseModel
 import uuid
 
-# ✅ SEM prefix e tags (definidos no main.py)
-router = APIRouter()
+router = APIRouter(prefix="/appointments", tags=["appointments"])
 
 # ==================== MODELS ====================
 
@@ -32,7 +32,7 @@ class MedicalQuestionnaire(BaseModel):
 class PrepareAppointmentRequest(BaseModel):
     services: List[ServiceItem]
     medical_questionnaire: Optional[MedicalQuestionnaire] = None
-    analysis_data: Optional[Dict[str, Any]] = None
+    analysis_data: Optional[dict] = None
     total_price: float
     total_duration: int
     created_at: str
@@ -44,10 +44,10 @@ class ScheduleAppointmentRequest(BaseModel):
     professional_id: Optional[str] = None
     notes: Optional[str] = ""
 
-# ==================== STORAGE ====================
+# ==================== IN-MEMORY STORAGE (substitua por banco de dados real) ====================
 
-pending_bookings = {}
-scheduled_appointments = {}
+pending_bookings = {}  # {booking_code: booking_data}
+scheduled_appointments = {}  # {appointment_id: appointment_data}
 
 # ==================== ENDPOINTS ====================
 
@@ -79,8 +79,6 @@ async def prepare_appointment(data: PrepareAppointmentRequest):
         
         pending_bookings[booking_code] = booking_data
         
-        print(f"✅ Agendamento preparado: {booking_code}")
-        
         return {
             "booking_code": booking_code,
             "status": "pending",
@@ -89,34 +87,23 @@ async def prepare_appointment(data: PrepareAppointmentRequest):
         }
         
     except Exception as e:
-        print(f"❌ Erro ao preparar agendamento: {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Erro ao preparar agendamento: {str(e)}"
         )
 
-@router.get("/list")
-async def list_appointments():
+@router.get("/booking/{booking_code}")
+async def get_booking(booking_code: str):
     """
-    Lista agendamentos.
+    Retorna os dados de um booking pelo código.
     """
-    appointments = list(scheduled_appointments.values())
+    if booking_code not in pending_bookings:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Agendamento não encontrado"
+        )
     
-    return {
-        "appointments": appointments,
-        "total": len(appointments)
-    }
-
-@router.get("/health")
-async def appointments_health():
-    """
-    Health check dos appointments.
-    """
-    return {
-        "status": "ok",
-        "pending_bookings": len(pending_bookings),
-        "scheduled_appointments": len(scheduled_appointments)
-    }
+    return pending_bookings[booking_code]
 
 @router.post("/schedule")
 async def schedule_appointment(data: ScheduleAppointmentRequest):
@@ -124,8 +111,14 @@ async def schedule_appointment(data: ScheduleAppointmentRequest):
     Agenda uma data e hora para um booking preparado.
     """
     try:
-        # Gerar ID do agendamento
-        appointment_id = f"APT-{uuid.uuid4().hex[:12].upper()}"
+        # Verificar se booking existe
+        if data.booking_code not in pending_bookings:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Agendamento não encontrado"
+            )
+        
+        booking = pending_bookings[data.booking_code]
         
         # Validar data (não pode ser no passado)
         appointment_datetime = datetime.fromisoformat(f"{data.appointment_date}T{data.appointment_time}")
@@ -135,8 +128,8 @@ async def schedule_appointment(data: ScheduleAppointmentRequest):
                 detail="Data e hora não podem estar no passado"
             )
         
-        # Buscar booking se existir
-        booking = pending_bookings.get(data.booking_code, {})
+        # Gerar ID do agendamento
+        appointment_id = f"APT-{uuid.uuid4().hex[:12].upper()}"
         
         # Criar agendamento
         appointment = {
@@ -147,13 +140,13 @@ async def schedule_appointment(data: ScheduleAppointmentRequest):
             "appointment_datetime": appointment_datetime.isoformat(),
             "professional_id": data.professional_id,
             "notes": data.notes,
-            "services": booking.get("services", []),
-            "medical_questionnaire": booking.get("medical_questionnaire"),
-            "total_price": booking.get("total_price", 0),
-            "total_duration": booking.get("total_duration", 0),
-            "requires_test": booking.get("requires_test", False),
+            "services": booking["services"],
+            "medical_questionnaire": booking["medical_questionnaire"],
+            "total_price": booking["total_price"],
+            "total_duration": booking["total_duration"],
+            "requires_test": booking["requires_test"],
             "status": "scheduled",
-            "created_at": datetime.now().isoformat(),
+            "created_at": booking["created_at"],
             "scheduled_at": datetime.now().isoformat()
         }
         
@@ -161,11 +154,8 @@ async def schedule_appointment(data: ScheduleAppointmentRequest):
         scheduled_appointments[appointment_id] = appointment
         
         # Atualizar status do booking
-        if data.booking_code in pending_bookings:
-            pending_bookings[data.booking_code]["status"] = "scheduled"
-            pending_bookings[data.booking_code]["appointment_id"] = appointment_id
-        
-        print(f"✅ Agendamento confirmado: {appointment_id} para {data.appointment_date} às {data.appointment_time}")
+        booking["status"] = "scheduled"
+        booking["appointment_id"] = appointment_id
         
         return {
             "appointment_id": appointment_id,
@@ -177,11 +167,68 @@ async def schedule_appointment(data: ScheduleAppointmentRequest):
     except HTTPException:
         raise
     except Exception as e:
-        print(f"❌ Erro ao agendar: {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Erro ao agendar: {str(e)}"
         )
+
+@router.get("/list")
+async def list_appointments(
+    status: Optional[str] = None,
+    limit: int = 10
+):
+    """
+    Lista agendamentos.
+    """
+    appointments = list(scheduled_appointments.values())
+    
+    # Filtrar por status se fornecido
+    if status:
+        appointments = [a for a in appointments if a["status"] == status]
+    
+    # Ordenar por data (mais recentes primeiro)
+    appointments.sort(key=lambda x: x["appointment_datetime"], reverse=True)
+    
+    # Limitar resultados
+    appointments = appointments[:limit]
+    
+    return {
+        "appointments": appointments,
+        "total": len(appointments)
+    }
+
+@router.get("/{appointment_id}")
+async def get_appointment(appointment_id: str):
+    """
+    Retorna detalhes de um agendamento.
+    """
+    if appointment_id not in scheduled_appointments:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Agendamento não encontrado"
+        )
+    
+    return scheduled_appointments[appointment_id]
+
+@router.delete("/{appointment_id}")
+async def cancel_appointment(appointment_id: str):
+    """
+    Cancela um agendamento.
+    """
+    if appointment_id not in scheduled_appointments:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Agendamento não encontrado"
+        )
+    
+    appointment = scheduled_appointments[appointment_id]
+    appointment["status"] = "cancelled"
+    appointment["cancelled_at"] = datetime.now().isoformat()
+    
+    return {
+        "message": "Agendamento cancelado com sucesso",
+        "appointment_id": appointment_id
+    }
 
 @router.get("/available-slots/{date}")
 async def get_available_slots(date: str):
@@ -221,25 +268,3 @@ async def get_available_slots(date: str):
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Formato de data inválido. Use YYYY-MM-DD"
         )
-
-@router.delete("/{appointment_id}")
-async def cancel_appointment(appointment_id: str):
-    """
-    Cancela um agendamento.
-    """
-    if appointment_id not in scheduled_appointments:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Agendamento não encontrado"
-        )
-    
-    appointment = scheduled_appointments[appointment_id]
-    appointment["status"] = "cancelled"
-    appointment["cancelled_at"] = datetime.now().isoformat()
-    
-    print(f"✅ Agendamento cancelado: {appointment_id}")
-    
-    return {
-        "message": "Agendamento cancelado com sucesso",
-        "appointment_id": appointment_id
-    }
