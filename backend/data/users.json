@@ -60,5 +60,20 @@
     "id": "bcbb22f4-0284-4af9-af0e-d4599f100db8",
     "created_at": "2025-11-30T17:59:08.637219",
     "is_active": true
+  },
+
+ {
+    "nome": "Ana Costa",
+    "email": "ana@example.com",
+    "telefone": "912984384",
+    "morada": "teste",
+    "senha": "$2b$12$fMj3IRciy7hqzTeurySLLeSQMfQjW7DHCNwkNgCk1DUxiP0k2IU/O",
+    "role": "profissional",
+    "id": "2",
+    "created_at": "2025-11-30T17:59:08.637219",
+    "is_active": true
   }
+
+
+
 ]

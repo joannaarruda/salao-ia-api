@@ -5,9 +5,18 @@ from typing import List, Optional, Dict, Any
 from datetime import datetime, timedelta
 from pydantic import BaseModel
 import uuid
+import sys
+from pathlib import Path
+
+# Adicionar caminho da app para imports
+sys.path.insert(0, str(Path(__file__).parent.parent))
+from databricks_export import DatabricksExporter
 
 # ✅ SEM prefix e tags (definidos no main.py)
 router = APIRouter()
+
+# Inicializar exportador
+exporter = DatabricksExporter(export_dir="exports/databricks")
 
 # ==================== MODELS ====================
 
@@ -165,6 +174,16 @@ async def schedule_appointment(data: ScheduleAppointmentRequest):
             pending_bookings[data.booking_code]["status"] = "scheduled"
             pending_bookings[data.booking_code]["appointment_id"] = appointment_id
         
+        # ✅ EXPORTAR PARA DATABRICKS
+        try:
+            export_path = exporter.export_appointments(
+                [appointment],
+                compress=True
+            )
+            print(f"✅ Agendamento exportado para Databricks: {export_path}")
+        except Exception as e:
+            print(f"⚠️ Aviso ao exportar para Databricks: {e}")
+        
         print(f"✅ Agendamento confirmado: {appointment_id} para {data.appointment_date} às {data.appointment_time}")
         
         return {
@@ -243,3 +262,128 @@ async def cancel_appointment(appointment_id: str):
         "message": "Agendamento cancelado com sucesso",
         "appointment_id": appointment_id
     }
+
+@router.post("/professional/create")
+async def create_appointment_as_professional(data: Dict[str, Any]):
+    """
+    Permite que um profissional crie agendamento para um cliente.
+    
+    Esperado:
+    {
+        "client_name": "Nome do Cliente",
+        "client_email": "email@example.com",
+        "client_phone": "912345678",
+        "appointment_date": "2025-12-15",
+        "appointment_time": "14:30",
+        "professional_id": "prof-123",
+        "professional_name": "Nome do Profissional",
+        "services": [{"id": "...", "name": "...", "price": 25, "duration": 60}],
+        "notes": "Observações opcionais"
+    }
+    """
+    try:
+        # Gerar IDs únicos
+        appointment_id = f"APT-{uuid.uuid4().hex[:12].upper()}"
+        booking_code = f"BOOK-{datetime.now().strftime('%Y%m%d')}-{uuid.uuid4().hex[:8].upper()}"
+        
+        # Validar data
+        appointment_datetime = datetime.fromisoformat(f"{data.get('appointment_date')}T{data.get('appointment_time')}")
+        if appointment_datetime < datetime.now():
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Data e hora não podem estar no passado"
+            )
+        
+        # Criar agendamento
+        appointment = {
+            "appointment_id": appointment_id,
+            "booking_code": booking_code,
+            "appointment_date": data.get("appointment_date"),
+            "appointment_time": data.get("appointment_time"),
+            "appointment_datetime": appointment_datetime.isoformat(),
+            "professional_id": data.get("professional_id"),
+            "professional_name": data.get("professional_name"),
+            "client_name": data.get("client_name"),
+            "client_email": data.get("client_email"),
+            "client_phone": data.get("client_phone"),
+            "notes": data.get("notes", ""),
+            "services": data.get("services", []),
+            "total_price": sum(s.get("price", 0) for s in data.get("services", [])),
+            "total_duration": sum(s.get("duration", 0) for s in data.get("services", [])),
+            "status": "scheduled",
+            "created_by": "professional",
+            "created_at": datetime.now().isoformat(),
+            "scheduled_at": datetime.now().isoformat()
+        }
+        
+        # Salvar agendamento
+        scheduled_appointments[appointment_id] = appointment
+        
+        # ✅ EXPORTAR PARA DATABRICKS
+        try:
+            export_path = exporter.export_appointments(
+                [appointment],
+                compress=True
+            )
+            print(f"✅ Agendamento criado por profissional exportado para Databricks: {export_path}")
+        except Exception as e:
+            print(f"⚠️ Aviso ao exportar para Databricks: {e}")
+        
+        print(f"✅ Agendamento criado por profissional: {appointment_id} para {data.get('appointment_date')} às {data.get('appointment_time')}")
+        
+        return {
+            "appointment_id": appointment_id,
+            "booking_code": booking_code,
+            "status": "scheduled",
+            "appointment_datetime": appointment_datetime.isoformat(),
+            "message": "Agendamento criado com sucesso pelo profissional"
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"❌ Erro ao criar agendamento como profissional: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Erro ao criar agendamento: {str(e)}"
+        )
+
+@router.post("/export-completed")
+async def export_completed_appointment(data: Dict[str, Any]):
+    """
+    Exporta agendamento concluído para Databricks.
+    Pode ser chamado diretamente após conclusão do atendimento.
+    
+    Dados esperados:
+    {
+        "booking_code": "...",
+        "status": "completed",
+        "completed_at": "...",
+        "strand_test_result": {  // opcional
+            "result": "positivo|negativo|adiado",
+            "observations": "...",
+            "tested_at": "..."
+        }
+    }
+    """
+    try:
+        # ✅ EXPORTAR PARA DATABRICKS
+        export_path = exporter.export_appointments(
+            [data],
+            compress=True
+        )
+        print(f"✅ Agendamento concluído exportado para Databricks: {export_path}")
+        
+        return {
+            "status": "exported",
+            "export_path": export_path,
+            "message": "Agendamento concluído exportado com sucesso"
+        }
+        
+    except Exception as e:
+        print(f"⚠️ Aviso ao exportar para Databricks: {e}")
+        # Não interromper o fluxo se a exportação falhar
+        return {
+            "status": "warning",
+            "message": f"Agendamento concluído mas exportação teve aviso: {str(e)}"
+        }
